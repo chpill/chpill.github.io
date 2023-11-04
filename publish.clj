@@ -13,8 +13,13 @@
 
 (def header
   [:header
-   [:a {:href "/"} "chez chpill"]
-   [:a {:href "/en/blog"} "blog"]])
+   [:nav
+    (into [:p
+           [:span {:style {:padding-right "2rem"}}
+            "Over-Engineering Log"]]
+          (interpose " - ")
+          [[:a {:href "/"} "about"]
+           [:a {:href "/en/posts"} "posts"]])]])
 
 (def footer
   [:footer {:style {:text-align "center" :margin-top "3rem"}}
@@ -28,25 +33,43 @@
 
 (def pub-dir "publish")
 
-(defn spit-page! [source-path title]
-  (let [dest-path (str pub-dir "/" (str/replace source-path ".md" ".html"))]
-    (spit dest-path
-          (page (hiccup2/raw
-                 (:out (sh "pandoc" "--from=gfm" source-path)))
-                title))))
+(defn posts-paths [lang sub-path]
+  (let [source-path (str lang "/posts/" sub-path)]
+    {:source-path source-path
+     :dest-path (str pub-dir "/" (str/replace source-path ".md" ".html"))}))
+
+(defn toc [lang posts]
+  (page
+   (hiccup2/html
+    [:div
+     [:h1 "All posts"]
+     (into [:ul]
+           (map (fn [[sub-path title]]
+                  [:li [:a {:href (subs (:dest-path (posts-paths lang sub-path))
+                                        (count pub-dir))}
+                        title]]))
+           posts)])
+   "All posts"))
+
+(defn spit-page! [{:keys [source-path dest-path]} title]
+  (spit dest-path
+        (page (hiccup2/raw
+               (:out (sh "pandoc" "--from=gfm" source-path)))
+              title)))
 
 ;; TODO find a way to extract metadata from the markdown files themselves
-(def blog-entries {"en" {"getting-a-feel-for-closeables.md" "Getting a feel for closeables"}})
+(def posts-entries {"en" {"getting-a-feel-for-closeables.md" "Getting a feel for closeables"}})
 
 ;; TODO research the publishing workflow described in https://github.com/mmzsource/mxmmz
 (do
   (sh "mkdir" "-p" (str pub-dir "/assets"))
   (sh "cp" "pandoc-gfm.css" (str pub-dir "/assets/"))
-  (spit-page! "index.md" "chez chpill")
+  (spit-page! {:source-path "index.md" :dest-path "publish/index.html"} "Over-Engineering Log")
   ;; TODO mimick the source directories structure instead of reproducing it manually
-  (doseq [[lang entries] blog-entries]
-    (sh "mkdir" "-p" (str pub-dir "/" lang "/blog"))
-    (doseq [[sub-path title] entries]
-      (spit-page! (str lang "/blog/" sub-path)
-                  title))))
+  (doseq [[lang posts] posts-entries]
+    (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
+    (spit (str pub-dir "/" lang "/posts/index.html")
+          (toc lang posts))
+    (doseq [[sub-path title] posts]
+      (spit-page! (posts-paths lang sub-path) title))))
 
