@@ -33,13 +33,15 @@ and displays a counter each time it is served:
 (require '[ring.adapter.jetty :refer [run-jetty]])
 
 (defn run-with-webserver [config f]
-  (with-open [counter (closeable (atom 42))
-              handler (closeable (fn [_req]
-                                   {:status 200
-                                    :body (str "Counter: " (swap! @counter inc))}))
-              webserver (closeable (run-jetty @handler {:port (:port config)
-                                                        :join? false})
-                                   #(.stop %))]
+  (with-open
+    [counter (closeable (atom 42))
+     handler (closeable (fn [_req]
+                          {:status 200
+                           :body (str "Counter: "
+                                      (swap! @counter inc))}))
+     webserver (closeable (run-jetty @handler {:port (:port config)
+                                               :join? false})
+                          #(.stop %))]
     (f @webserver)))
 ```
 
@@ -78,9 +80,9 @@ __NB: Depending on your tooling, evaluating the previous expression can block
 your REPL. You will need to interupt the evaluation to stop the webserver.__
 
 It felt odd at first having the "run" function not do its task indefinitely.
-After all, the kind of systems I want to define are [Situated programs][7], long
-running processes tangled with outside world. But it makes it a lot easier to
-work with our system in various ways. Testing is effortless for example:
+After all, Clojure was made for [Situated programs][7], long running processes
+tangled with outside world. But it makes it a lot easier to work with our system
+in various ways. Testing is effortless for example:
 
 ```clj
 (require '[clojure.test :refer [deftest is run-tests]])
@@ -119,7 +121,7 @@ hand! Your editor probably has some integration with tools.namespace via a
 plugin. For example for Emacs and Cider, I usually declare a `.dir-locals.el` at
 the root of the projet with the following:
 
-```elisp
+```emacs
 ((clojure-mode . ((cider-ns-refresh-before-fn . "user/stop!")
                   (cider-ns-refresh-after-fn  . "user/start!"))))
 ```
@@ -140,6 +142,11 @@ make a change, because you need to populate a dev DB for example. That's why
 reload" of your system. Obviously, we cannot do that here, but let me share a
 trick from the [reitit][8] docs that will help you if you are building a website
 or an API server.
+
+For this example, we'll to create a bunch of files to mimick a more complex
+project structure.
+
+
 
 
 [1]: https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98
