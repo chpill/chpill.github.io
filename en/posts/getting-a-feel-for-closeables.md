@@ -1,5 +1,7 @@
 # Getting a feel for closeables
 
+_2023-11-05_
+
 The other day, I stumbled upon [this article][1] which presents a minimalist way
 to declare and manage runtime state in your Clojure programs. Having used
 [Components][2], [Integrant][3] and then [Clip][4], this felt almost like
@@ -9,11 +11,10 @@ at first, but with some "reloaded workflow". We will then move on by showing a
 way to keep the need for reloading to a minimum as the web server gets more
 complex.
 
+## A barebone webserver
+
 If you want to evaluate the code for yourself, you can find the all the
 following examples in [this repo][5].
-
-
-## Barebone web server
 
 First, let's add the `closeable` helper:
 
@@ -51,9 +52,9 @@ Compared to the original article, you may notice 2 main differences in this exam
    not bother building an associative map with every binding declared in
    `with-open`.
 
-2. `run-with-webserver` is much more specific than the generic `with-my-system`,
-    because what we are doing has the very big side effect of opening up a port on
-    the host where it is run, I prefer to narrow the meaning.
+2. `run-with-webserver` is much more specific than the generic `with-my-system`.
+    The main side effect of calling this function is to open up a port on the
+    host where it is run, so I prefer to narrow the meaning to reflec that.
 
 We can see it in action by evaluating the following expression:
 
@@ -79,6 +80,8 @@ on the Jetty Server][6].
 __NB: Depending on your tooling, evaluating the previous expression can block
 your REPL. You will need to interupt the evaluation to stop the webserver.__
 
+## Testing
+
 It felt odd at first having the "run" function not do its task indefinitely.
 After all, Clojure was made for [Situated programs][7], long running processes
 tangled with outside world. But it makes it a lot easier to work with our system
@@ -98,6 +101,8 @@ in various ways. Testing is effortless for example:
 
 (comment (run-tests))
 ```
+
+## The famous "reloaded" workflow
 
 Finally, let's add some convenient handles (in `user.clj`) to play with our
 webserver from the REPL.
@@ -133,28 +138,20 @@ a dummy future in that reference so that I can call `cider-ns-refresh` to start
 my system the first time.
 
 
-## Meatier web server
+## Conclusion
 
-The previous example worked like a charm, but it was excessively simple. In real
-world applications, it can be painful to stop and start a system every time you
-make a change, because you need to populate a dev DB for example. That's why
-[Integrant][3] features a suspend/resume mechanism, to get a kind of "soft
-reload" of your system. Obviously, we cannot do that here, but let me share a
-trick from the [reitit][8] docs that will help you if you are building a website
-or an API server.
-
-For this example, we'll to create a bunch of files to mimick a more complex
-project structure.
-
-
+Even though I do not yet have had a lot experience with this approach, there are
+already [positive reports](8) of its use, so I'm eager to use it in my projects
+going forward. In the next post, we'll explore a slightly meatier example of
+web server.
 
 
 [1]: https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98
 [2]: https://github.com/stuartsierra/component
 [3]: https://github.com/weavejester/integrant/
 [4]: https://github.com/juxt/clip
-[5]: https://github.com/chpill/demo-closeable
+[5]: https://github.com/chpill/demo-closeable/tree/master/barebone-webserver
 [6]: https://eclipse.dev/jetty/javadoc/jetty-11/org/eclipse/jetty/server/Server.html#join()
 [7]: https://youtu.be/2V1FtfBDsLU?t=646
-[8]: https://github.com/metosin/reitit/
-
+[8]: https://www.juxt.pro/blog/clojure-in-griffin/
+[9]: /en/posts/rapid-feedback-webdev-with-closeables-and-reitit.html

@@ -1,4 +1,4 @@
-(ns chpill.publish
+(ns chpill.over-engineering-log.publish
   (:require [clojure.java.shell :refer [sh]]
             [clojure.java.io    :as io]
             [clojure.string :as str]
@@ -21,6 +21,8 @@
           [[:a {:href "/"} "about"]
            [:a {:href "/en/posts"} "posts"]])]])
 
+;; TODO make an article footer with a link to the source on github, for easy
+;; feedback on spelling, typos and so on.
 (def footer
   [:footer {:style {:text-align "center" :margin-top "3rem"}}
    [:hr]
@@ -57,10 +59,15 @@
                (:out (sh "pandoc" "--from=gfm" source-path)))
               title)))
 
-;; TODO find a way to extract metadata from the markdown files themselves
-(def posts-entries {"en" {"getting-a-feel-for-closeables.md" "Getting a feel for closeables"}})
+;; TODO find a way to extract metadata from the markdown files themselves, for example, date, title...
+(def posts-entries {"en" [["getting-a-feel-for-closeables.md" "Getting a feel for closeables"]
+                          ;; TODO 1 finish this post, and link it from the first one
+                          #_["rapid-feedback-webdev-with-closeables-and-reitit.md" "Rapid feedback webdev with closeables and reitit"]
+                          ;; TODO backport old medium post about transducer on this blog?
+                          ;; This would need a disclaimer at the begining, explaining that clojure.core/into has since been "fixed". A study of that fix could also make a good article.
+                          ;; https://medium.com/@chpill_/deep-dive-into-a-clojure-transducer-3d4117784fa6
+                          ]})
 
-;; TODO research the publishing workflow described in https://github.com/mmzsource/mxmmz
 (do
   (sh "mkdir" "-p" (str pub-dir "/assets"))
   (sh "cp" "pandoc-gfm.css" (str pub-dir "/assets/"))
@@ -72,4 +79,3 @@
           (toc lang posts))
     (doseq [[sub-path title] posts]
       (spit-page! (posts-paths lang sub-path) title))))
-
