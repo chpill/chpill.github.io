@@ -5,16 +5,14 @@ _2023-11-05_
 The other day, I stumbled upon [this article][1] which presents a minimalist way
 to declare and manage runtime state in your Clojure programs. Having used
 [Components][2], [Integrant][3] and then [Clip][4], this felt almost like
-cheating. Can something so simple actually work? Well, it does in fact work
-pretty well. Let's illustrate that by implementing a web server, pretty barebone
-at first, but with some "reloaded workflow". We will then move on by showing a
-way to keep the need for reloading to a minimum as the web server gets more
-complex.
+cheating. Can something so simple actually work? Well, it actually does pretty
+well. Let's illustrate that by implementing a web server, pretty barebone, but
+with some "reloaded workflow".
 
 ## A barebone webserver
 
-If you want to evaluate the code for yourself, you can find the all the
-following examples in [this repo][5].
+If you want to evaluate the code for yourself, you can find the the
+following examples in [this repository][5].
 
 First, let's add the `closeable` helper:
 
@@ -46,7 +44,7 @@ and displays a counter each time it is served:
     (f @webserver)))
 ```
 
-Compared to the original article, you may notice 2 main differences in this example:
+Compared to the [original article][1], you may notice 2 main differences in this example:
 
 1. It does not return a function that closes over the configuration, and it does
    not bother building an associative map with every binding declared in
@@ -54,7 +52,7 @@ Compared to the original article, you may notice 2 main differences in this exam
 
 2. `run-with-webserver` is much more specific than the generic `with-my-system`.
     The main side effect of calling this function is to open up a port on the
-    host where it is run, so I prefer to narrow the meaning to reflec that.
+    host where it is run, so I prefer to narrow the meaning to reflect that.
 
 We can see it in action by evaluating the following expression:
 
@@ -68,7 +66,7 @@ We can see it in action by evaluating the following expression:
 It should print `The server is live: Counter: 43` in your REPL (among other log
 statements). That is well and good, but if you try to access
 `http://localhost:54321` from your browser, you'll see that the server is not
-actually running anymore. As explained in the original article, once the
+actually running anymore. As explained in the [original article][1], once the
 function we pass to `run-with-webserver` returns, the opened resources are
 released. In order to keep the server running indefinitely, we can use [`.join`
 on the Jetty Server][6].
@@ -78,7 +76,7 @@ on the Jetty Server][6].
 ```
 
 __NB: Depending on your tooling, evaluating the previous expression can block
-your REPL. You will need to interupt the evaluation to stop the webserver.__
+your REPL. You'll need to interupt the evaluation to stop the webserver.__
 
 ## Testing
 
@@ -121,10 +119,11 @@ webserver from the REPL.
 ```
 
 After evaluating this code and calling `(start!)`, you should be able to visit
-http://localhost:54321 and see the counter for yourself. But do not call this by
-hand! Your editor probably has some integration with tools.namespace via a
-plugin. For example for Emacs and Cider, I usually declare a `.dir-locals.el` at
-the root of the projet with the following:
+[http://localhost:54321](http://localhost:54321) and see the counter for
+yourself. But do not call this by hand! Your editor probably has some
+integration with tools.namespace via a plugin. For example for Emacs and Cider,
+I usually declare a `.dir-locals.el` at the root of the projet with the
+following:
 
 ```emacs
 ((clojure-mode . ((cider-ns-refresh-before-fn . "user/stop!")
@@ -141,7 +140,7 @@ my system the first time.
 ## Conclusion
 
 Even though I do not yet have had a lot experience with this approach, there are
-already [positive reports](8) of its use, so I'm eager to use it in my projects
+already [positive reports][8] of its use, so I'm eager to use it in my projects
 going forward. In the next post, we'll explore a slightly meatier example of
 web server.
 
