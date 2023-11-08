@@ -65,11 +65,11 @@ We can see it in action by evaluating the following expression:
 
 It should print `The server is live: Counter: 43` in your REPL (among other log
 statements). That is well and good, but if you try to access
-`http://localhost:54321` from your browser, you'll see that the server is not
-actually running anymore. As explained in the [original article][1], once the
-function we pass to `run-with-webserver` returns, the opened resources are
-released. In order to keep the server running indefinitely, we can use [`.join`
-on the Jetty Server][6].
+[http://localhost:54321](http://localhost:54321) from your browser, you'll see
+that the server is not actually running anymore. As explained in the [original
+article][1], once the function we pass to `run-with-webserver` returns, the
+opened resources are released. In order to keep the server running indefinitely,
+we can use [`.join` on the Jetty Server][6].
 
 ```clj
 (run-with-webserver {:port 54321} #(.join %))
