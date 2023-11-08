@@ -61,9 +61,9 @@ class="sourceCode clj"><code class="sourceCode clojure"><span id="cb3-1"><a href
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                               (<span class="kw">slurp</span> <span class="st">&quot;http://localhost:54321&quot;</span>))))</span></code></pre></div>
 <p>It should print <code>The server is live: Counter: 43</code> in your
 REPL (among other log statements). That is well and good, but if you try
-to access <code>http://localhost:54321</code> from your browser, you'll
-see that the server is not actually running anymore. As explained in the
-<a
+to access <a href="http://localhost:54321">http://localhost:54321</a>
+from your browser, you'll see that the server is not actually running
+anymore. As explained in the <a
 href="https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98">original
 article</a>, once the function we pass to
 <code>run-with-webserver</code> returns, the opened resources are
