@@ -2,17 +2,19 @@
 
 _2023-11-05_
 
-The other day, I stumbled upon [this article][1] which presents a minimalist way
-to declare and manage runtime state in your Clojure programs. Having used
-[Components][2], [Integrant][3] and then [Clip][4], this felt almost like
-cheating. Can something so simple actually work? Well, it actually does pretty
-well. Let's illustrate that by implementing a web server, pretty barebone, but
-with some "reloaded workflow".
+The other day, I stumbled upon [this article by Maciej Szajna][1] which presents
+a minimalist way to declare and manage runtime state in your Clojure programs.
+Having used [Components][2], [Integrant][3] and then [Clip][4], this felt almost
+like cheating. Can something so simple actually work? Well, it actually does
+pretty well. Let's illustrate that by implementing a web server, pretty
+barebone, but with some "reloaded workflow". This won't be much more than a
+special case for the pattern demonstrated in the [Maciej's article][1], but it
+will serve as a foundation to build upon in future posts.
 
 ## A barebone webserver
 
-If you want to evaluate the code for yourself, you can find the the
-following examples in [this repository][5].
+If you want to evaluate the code for yourself, you can find the following
+examples in [this repository][5].
 
 First, let's add the `closeable` helper:
 
@@ -44,7 +46,8 @@ and displays a counter each time it is served:
     (f @webserver)))
 ```
 
-Compared to the [original article][1], you may notice 2 main differences in this example:
+Compared to the [Maciej's article][1], you may notice 2 main differences in this
+example:
 
 1. It does not return a function that closes over the configuration, and it does
    not bother building an associative map with every binding declared in
@@ -66,7 +69,7 @@ We can see it in action by evaluating the following expression:
 It should print `The server is live: Counter: 43` in your REPL (among other log
 statements). That is well and good, but if you try to access
 [http://localhost:54321](http://localhost:54321) from your browser, you'll see
-that the server is not actually running anymore. As explained in the [original
+that the server is not actually running anymore. As explained in the [Maciej's
 article][1], once the function we pass to `run-with-webserver` returns, the
 opened resources are released. In order to keep the server running indefinitely,
 we can use [`.join` on the Jetty Server][6].
