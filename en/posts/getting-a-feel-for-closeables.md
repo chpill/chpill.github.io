@@ -8,7 +8,7 @@ Having used [Components][2], [Integrant][3] and then [Clip][4], this felt almost
 like cheating. Can something so simple actually work? Well, it actually does
 pretty well. Let's illustrate that by implementing a web server, pretty
 barebone, but with some "reloaded workflow". This won't be much more than a
-special case for the pattern demonstrated in the [Maciej's article][1], but it
+special case for the pattern demonstrated in [Maciej's article][1], but it
 will serve as a foundation to build upon in future posts.
 
 ## A barebone webserver
@@ -46,7 +46,7 @@ and displays a counter each time it is served:
     (f @webserver)))
 ```
 
-Compared to the [Maciej's article][1], you may notice 2 main differences in this
+Compared to [Maciej's article][1], you may notice 2 main differences in this
 example:
 
 1. It does not return a function that closes over the configuration, and it does
@@ -69,7 +69,7 @@ We can see it in action by evaluating the following expression:
 It should print `The server is live: Counter: 43` in your REPL (among other log
 statements). That is well and good, but if you try to access
 [http://localhost:54321](http://localhost:54321) from your browser, you'll see
-that the server is not actually running anymore. As explained in the [Maciej's
+that the server is not actually running anymore. As explained in [Maciej's
 article][1], once the function we pass to `run-with-webserver` returns, the
 opened resources are released. In order to keep the server running indefinitely,
 we can use [`.join` on the Jetty Server][6].
@@ -84,7 +84,7 @@ your REPL. You'll need to interupt the evaluation to stop the webserver.__
 ## Testing
 
 It felt odd at first having the "run" function not do its task indefinitely.
-After all, Clojure was made for [Situated programs][7], long running processes
+After all, Clojure was made for [situated programs][7], long running processes
 tangled with outside world. But it makes it a lot easier to work with our system
 in various ways. Testing is effortless for example:
 
@@ -123,7 +123,7 @@ webserver from the REPL.
 
 After evaluating this code and calling `(start!)`, you should be able to visit
 [http://localhost:54321](http://localhost:54321) and see the counter for
-yourself. But do not call this by hand! Your editor probably has some
+yourself. But do not evaluate this by hand! Your editor probably has some
 integration with tools.namespace via a plugin. For example for Emacs and Cider,
 I usually declare a `.dir-locals.el` at the root of the projet with the
 following:
@@ -144,8 +144,8 @@ my system the first time.
 
 Even though I do not yet have had a lot experience with this approach, there are
 already [positive reports][8] of its use, so I'm eager to use it in my projects
-going forward. In the next post, we'll explore a slightly meatier example of
-web server.
+going forward. In the [next post][9], we'll explore a slightly meatier example
+of web server.
 
 
 [1]: https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98

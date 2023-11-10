@@ -10,6 +10,10 @@ having another git worktree in the publish sub-directory
 git worktree add publish gh-pages
 ```
 
+### Nota bene
+
+To avoid having an horizontal scroll appear on code blocks, keep the line length
+strictly below 70 characters.
 
 ### Dev
 
