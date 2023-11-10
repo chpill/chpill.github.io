@@ -4,6 +4,7 @@
             [clojure.string :as str]
             [hiccup2.core :as hiccup2]))
 
+(def site-title "Chpill's (Over) Engineering Log")
 
 (defn head [title]
   [:head
@@ -15,8 +16,7 @@
   [:header
    [:nav
     (into [:p
-           [:span {:style {:padding-right "2rem"}}
-            "Over-Engineering Log"]]
+           [:span {:style {:padding-right "2rem"}} site-title]]
           (interpose " - ")
           [[:a {:href "/"} "about"]
            [:a {:href "/en/posts"} "posts"]])]])
@@ -71,7 +71,7 @@
 (do
   (sh "mkdir" "-p" (str pub-dir "/assets"))
   (sh "cp" "pandoc-gfm.css" (str pub-dir "/assets/"))
-  (spit-page! {:source-path "index.md" :dest-path "publish/index.html"} "Over-Engineering Log")
+  (spit-page! {:source-path "index.md" :dest-path "publish/index.html"} site-title)
   ;; TODO mimick the source directories structure instead of reproducing it manually
   (doseq [[lang posts] posts-entries]
     (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
