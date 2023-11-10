@@ -12,7 +12,7 @@ href="https://github.com/weavejester/integrant/">Integrant</a> and then
 cheating. Can something so simple actually work? Well, it actually does
 pretty well. Let's illustrate that by implementing a web server, pretty
 barebone, but with some "reloaded workflow". This won't be much more
-than a special case for the pattern demonstrated in the <a
+than a special case for the pattern demonstrated in <a
 href="https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98">Maciej's
 article</a>, but it will serve as a foundation to build upon in future
 posts.</p>
@@ -45,7 +45,7 @@ class="sourceCode clj"><code class="sourceCode clojure"><span id="cb2-1"><a href
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>                                               <span class="at">:join</span>? <span class="va">false</span>})</span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>                          #(.stop <span class="va">%</span>))]</span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    (f <span class="at">@webserver</span>)))</span></code></pre></div>
-<p>Compared to the <a
+<p>Compared to <a
 href="https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98">Maciej's
 article</a>, you may notice 2 main differences in this example:</p>
 <ol type="1">
@@ -67,7 +67,7 @@ class="sourceCode clj"><code class="sourceCode clojure"><span id="cb3-1"><a href
 REPL (among other log statements). That is well and good, but if you try
 to access <a href="http://localhost:54321">http://localhost:54321</a>
 from your browser, you'll see that the server is not actually running
-anymore. As explained in the <a
+anymore. As explained in <a
 href="https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98">Maciej's
 article</a>, once the function we pass to
 <code>run-with-webserver</code> returns, the opened resources are
