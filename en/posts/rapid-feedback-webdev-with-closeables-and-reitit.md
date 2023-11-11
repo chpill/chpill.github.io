@@ -9,16 +9,16 @@ system every time you make a change (for example: if you need to populate a
 development database with a lot of data). That's why [Integrant][2] features a
 suspend/resume mechanism, to get a kind of "soft reload" of your system.
 Obviously, we cannot do that here, but let me share a DIY trick mentionned in
-the [Reitit docs][3] that will help keep your feedback loop short as you are
-building a website or an api server.
+the [Reitit documentation][3] that will help keep your feedback loop short as
+you are building a website or an api server.
 
 
 ## Simple routing fragments
 
-For this example, we'll to create a bunch of files to mimick a more complex
-project structure. The code is available in this [repository][4]. First, let's
-create a namespace where we'll put the incrementing counter function from the
-[last post][1].
+For this example, we'll create a bunch of files to mimick a more complex project
+structure. The code is available in this [repository][4]. First, let's create a
+namespace where we'll put the incrementing counter function from the [previous
+post][1].
 
 ```clj
 (ns demo-closeable.deeply-nested)
@@ -88,13 +88,13 @@ level, and create a namespace that will build the complete routing table.
 
 Now, we get to more interesting functions:
 
-* `complete-routes` returns the complete routing table of our application.
-* `inject-counter` returns a very simple ring middleware that will provide our
+* `complete-routes` returns the complete routing table of the application.
+* `inject-counter` returns a very simple ring middleware that will provide the
   modest "source of truth" to any handler it is applied to.
-* `make` turns our routing table into a fully fledged handler, with the previous
+* `make` turns the routing table into a fully fledged handler, with the previous
   middleware being applied globally.
 * `make-reloading` calls a handy development helper from Reitit: the
-  [reloading-ring-handler][5]. It will call `make` to recreate our handler on
+  [reloading-ring-handler][5]. It will call `make` to recreate the handler on
   every request.
 
 Because we have made every routing fragment a function, when `make` is called on
@@ -105,7 +105,7 @@ however nested they may be.
 
 ## The system
 
-And now, the entry point of our webserver:
+And now, the entry point of the webserver:
 
 ```clj
 (ns demo-closeable.meatier-webserver
@@ -132,8 +132,7 @@ And now, the entry point of our webserver:
     (f @webserver)))
 ```
 
-
-Compared to our previous post, the only difference here is our handler, where we
+Compared to the previous post, the only difference here is the handler, where we
 check the config to decide which flavor of handler we want: `(if (:dev config)
 handler/make-reloading handler/make)`. Use the new config parameter we
 introduced to launch the server:
@@ -144,13 +143,13 @@ introduced to launch the server:
 ```
 
 Open [http://localhost:54321/nested/deeply-nested/counter](http://localhost:54321/nested/deeply-nested/counter)
-in your browser, you should see our new counter page.
+in your browser, you should see the new counter page.
 
 Now, try changing and re-evaluating the leaf handlers and the routing fragments.
 You'll see that the changes are picked up as soon as you refresh the page in
 your browser. For my particular workflow with emacs and CIDER, that mean I will
 simply `cider-eval-defun-at-point` to re-evaluate the top-level form I'm
-currently editing, and I can then refresh the page in a browser for example.
+currently editing, and then I can refresh the page in a browser for example.
 
 
 To verify this behaviour a little more rigorously, we can write a test like
@@ -198,11 +197,11 @@ need a full system reload.
 
 To dig a little deeper, this works because when clojure functions are evaluated
 (which specifically means "compiled" by the Clojure compiler here), a
-distinction is made between symbols referencing functions defined as global
-[vars][7] and others in the lexical scope.
+distinction is made between symbols referencing global [vars][7] and others in
+the lexical scope.
 
-We can observe this difference when the value of function is captured in the
-closure of another. Let's add an example to our `deeply-nested` namespace:
+We can observe this difference when the value of a function is captured in the
+closure of another. Let's add an example to the `deeply-nested` namespace:
 
 ```clj
 (ns demo-closeable.deeply-nested)
@@ -234,8 +233,8 @@ result in the `captured-fn` var. If you make a change to `example-fn` and
 naively re-evaluate it, you will notice that the change is not picked up when
 you visit [http://lol:54321/nested/deeply-nested/closure-issue](http://lol:54321/nested/deeply-nested/closure-issue).
 That is because the `example-fn` var is not in the body of the `inner-function`
-that was given to the routing fragment. To convince yourself, trying changing
-the middleware like so:
+that was given to the routing fragment. If you need to convince yourself of this
+behaviour, try changing the middleware like so:
 
 ```clj
 (defn smug-middleware [handler]
