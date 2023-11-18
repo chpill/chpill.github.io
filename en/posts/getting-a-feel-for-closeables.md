@@ -156,4 +156,4 @@ of web server.
 [6]: https://eclipse.dev/jetty/javadoc/jetty-11/org/eclipse/jetty/server/Server.html#join()
 [7]: https://youtu.be/2V1FtfBDsLU?t=646
 [8]: https://www.juxt.pro/blog/clojure-in-griffin/
-[9]: /en/posts/rapid-feedback-webdev-with-closeables-and-reitit.html
+[9]: /en/posts/rapid-feedback-webdev-with-reitit.html
