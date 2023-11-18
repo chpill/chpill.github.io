@@ -60,8 +60,8 @@
               title)))
 
 ;; TODO find a way to extract metadata from the markdown files themselves, for example, date, title...
-(def posts-entries {"en" [["getting-a-feel-for-closeables.md" "Getting a feel for closeables"]
-                          ["rapid-feedback-webdev-with-closeables-and-reitit.md" "Rapid feedback webdev with closeables and reitit"]
+(def posts-entries {"en" [["getting-a-feel-for-closeables.md" "2023-11-05 - Getting a feel for closeables"]
+                          ["rapid-feedback-webdev-with-reitit.md" "2023-11-18 - Rapid feedback webdev (with reitit)"]
                           ;; TODO backport old medium post about transducer on this blog?
                           ;; This would need a disclaimer at the begining, explaining that clojure.core/into has since been "fixed". A study of that fix could also make a good article.
                           ;; https://medium.com/@chpill_/deep-dive-into-a-clojure-transducer-3d4117784fa6

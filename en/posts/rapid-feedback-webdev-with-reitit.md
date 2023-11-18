@@ -1,6 +1,6 @@
-# Rapid feedback webdev with closeables and Reitit
+# Rapid feedback webdev (with Reitit)
 
-_2023-11-xx_ TODO
+_2023-11-18_
 
 In the [previous post][1], we got aquainted with `closeables` to manage runtime
 state in our Clojure programs. It worked like a charm, but it was (purposefully)
