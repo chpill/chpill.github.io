@@ -26,7 +26,7 @@
 (def footer
   [:footer {:style {:text-align "center" :margin-top "3rem"}}
    [:hr]
-   [:p [:small "Made with " [:a {:href "https://hackage.haskell.org/package/pandoc-cli"} "Pandoc"]]]])
+   [:p [:small "Made with " [:a {:href "https://pandoc.org/"} "Pandoc"]]]])
 
 (defn page [main-content title]
   (str "<!DOCTYPE html>\n"
