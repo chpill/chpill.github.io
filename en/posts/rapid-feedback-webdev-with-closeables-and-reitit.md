@@ -10,7 +10,9 @@ development database with a lot of data). That's why [Integrant][2] features a
 suspend/resume mechanism, to get a kind of "soft reload" of your system.
 Obviously, we cannot do that here, but let me share a DIY trick mentionned in
 the [Reitit documentation][3] that will help keep your feedback loop short as
-you are building a website or an api server.
+you are building a website or an api server. We'll then dig a little deeper into
+why it works and when it doesn't, so that you may reuse this pattern outside of
+webdev as well.
 
 
 ## Simple routing fragments
@@ -89,8 +91,8 @@ level, and create a namespace that will build the complete routing table.
 Now, we get to more interesting functions:
 
 * `complete-routes` returns the complete routing table of the application.
-* `inject-counter` returns a very simple ring middleware that will provide the
-  modest "source of truth" to any handler it is applied to.
+* `inject-counter` returns a synchronous ring middleware that will provide the
+  counter atom to any handler it is applied to.
 * `make` turns the routing table into a fully fledged handler, with the previous
   middleware being applied globally.
 * `make-reloading` calls a handy development helper from Reitit: the
@@ -188,20 +190,21 @@ this:
 (comment (run-tests))
 ```
 
-There you have it, a localized code reload that keeps the existing runtime state
-of the system. Any work happening on the handlers of the application will rarely
-need a full system reload.
-
 
 ## Where if falls short
 
 To dig a little deeper, this works because when clojure functions are evaluated
 (which specifically means "compiled" by the Clojure compiler here), a
 distinction is made between symbols referencing global [vars][7] and others in
-the lexical scope.
+the lexical scope. You can get the full picture by reading about [Clojure's
+evaluation][8]. When the function is invoked, every var in its body will be
+dereferenced (or "traversed"), so you will see the last evaluated value of those
+vars (unless you are compiling with [direct-linking][6] enabled, but that's not
+usually the case during development).
 
 We can observe this difference when the value of a function is captured in the
-closure of another. Let's add an example to the `deeply-nested` namespace:
+closure of another. Let's add an example of this to the `deeply-nested`
+namespace:
 
 ```clj
 (ns demo-closeable.deeply-nested)
@@ -248,8 +251,152 @@ evaluating only `example-fn` again. This time, the change will be picked up. The
 indirection of the middleware is still the same, the only difference is that we
 did not use the `handler` value that was captured in the closure of the
 `inner-function` (which still contains the previous value). Instead, we directly
-used the var `example-fn`, which is dereferenced or "traversed" on every call of
-`inner-function` behind the scenes.
+used the var `example-fn`, which is dereferenced on every call of
+`inner-function` behind the scenes. To be more precise, it works because of the
+[interning of vars][9]. This is a really important thing to grasp, so be sure to
+also check this [section of the official clojure REPL guide][10].
+
+
+(If you are curious in seeing exactly how this plays out in the lower level
+code, you can use the [clj-java-decompiler][11] to compare the 2 functions, but
+it isn't vital to the point being made.)
+
+<details>
+<summary>Show me the low level stuff anyway</summary>
+
+Here's the first version of the `smug-middleware`:
+
+```clj
+(require '[clj-java-decompiler.core :refer [decompile]])
+
+(->> (defn smug-middleware [handler]
+         (fn inner-function [req]
+           (update (handler req)
+                   :body str " -- Sent from my server. I use Clojure btw.")))
+       decompile
+       with-out-str
+       (spit "/tmp/decompiled-original.java"))
+```
+
+```java
+// Decompiling class: demo_closeable/deeply_nested$smug_middleware
+package demo_closeable;
+
+import clojure.lang.*;
+
+public final class deeply_nested$smug_middleware extends AFunction
+{
+    public static Object invokeStatic(final Object handler) {
+        return new deeply_nested$smug_middleware$inner_function__13650(handler);
+    }
+
+    @Override
+    public Object invoke(final Object handler) {
+        return invokeStatic(handler);
+    }
+}
+
+
+// Decompiling class: demo_closeable/deeply_nested$smug_middleware$inner_function__13650
+package demo_closeable;
+
+import clojure.lang.*;
+
+public final class deeply_nested$smug_middleware$inner_function__13650 extends AFunction
+{
+    Object handler;
+    public static final Var __update;
+    public static final Keyword const__1;
+    public static final Var __str;
+
+    public deeply_nested$smug_middleware$inner_function__13650(final Object handler) {
+        this.handler = handler;
+    }
+
+    @Override
+    public Object invoke(final Object req) {
+        final IFn fn = (IFn)__update.getRawRoot();
+        final Object invoke = ((IFn)this.handler).invoke(req);
+        final Keyword const__1 = const__1;
+        final Object rawRoot = __str.getRawRoot();
+        final String s = " -- Sent from my server. I use Clojure btw.";
+        this = null;
+        return fn.invoke(invoke, const__1, rawRoot, s);
+    }
+
+    static {
+        __update = RT.var("clojure.core", "update");
+        const__1 = RT.keyword(null, "body");
+        __str = RT.var("clojure.core", "str");
+    }
+}
+```
+
+Here's the second version of the `smug-middleware`
+
+```clj
+(->> (defn smug-middleware [handler]
+         (fn inner-function [req]
+           (update (example-fn req)
+                   :body str " -- I like hammocks and private jokes.")))
+       decompile
+       with-out-str
+       (spit "/tmp/decompiled-with-modification.java"))
+```
+
+```java
+// Decompiling class: demo_closeable/deeply_nested$smug_middleware
+package demo_closeable;
+
+import clojure.lang.*;
+
+public final class deeply_nested$smug_middleware extends AFunction
+{
+    public static Object invokeStatic(final Object handler) {
+        return new deeply_nested$smug_middleware$inner_function__13666();
+    }
+
+    @Override
+    public Object invoke(final Object handler) {
+        return invokeStatic(handler);
+    }
+}
+
+
+// Decompiling class: demo_closeable/deeply_nested$smug_middleware$inner_function__13666
+package demo_closeable;
+
+import clojure.lang.*;
+
+public final class deeply_nested$smug_middleware$inner_function__13666 extends AFunction
+{
+    public static final Var __update;
+    public static final Var __ddeeply_nested_example_fn;
+    public static final Keyword const__2;
+    public static final Var __str;
+
+    @Override
+    public Object invoke(final Object req) {
+        final IFn fn = (IFn)__update.getRawRoot();
+        final Object invoke = __ddeeply_nested_example_fn.invoke(req);
+        final Keyword const__2 = const__2;
+        final Object rawRoot = __str.getRawRoot();
+        final String s = " -- I like hammocks and private jokes.";
+        this = null;
+        return fn.invoke(invoke, const__2, rawRoot, s);
+    }
+
+    static {
+        __update = RT.var("clojure.core", "update");
+        __ddeeply_nested_example_fn = RT.var("demo-closeable.deeply-nested", "example-fn");
+        const__2 = RT.keyword(null, "body");
+        __str = RT.var("clojure.core", "str");
+    }
+}
+```
+
+</details>
+
 
 Thanksfully, you will generally not be bothered by this particular use case as
 Reitit provides a more convenient way of applying middlewares to handlers in the
@@ -279,11 +426,15 @@ sins. Let's be honest, I'll probably do it again. Shame on me.
 
 We have illustrated a web project structure that allows for fast feedback
 without full system reloads. The structure should also be very easy to extend
-upon, adding new routes, handlers, or pieces of runtime state. Although it was
-specific, the only [helper we used from Reitit][5] is actually very simple. This
-can probably be replicated with any routing library out there without altering
-the structure too much. And hopefully, the trick can also be useful outside of
-web servers as well.
+upon, adding new routes, handlers, or pieces of runtime state.
+
+Vars are the unsung heroes of rapid-feedback worklow when doing Clojure. They
+are a lower level abstraction compared to a full "reloaded" workflow (Stuart
+Halloway gives a good comparison in his talk [Running With Scissors][12]).
+Although what this post showed was specific to Reitit, the only [helper from the
+library we used][5] is dead simple. This can probably be replicated with any
+routing library out there without altering the structure too much.
+
 
 
 [1]: /en/posts/getting-a-feel-for-closeables.html
@@ -293,3 +444,8 @@ web servers as well.
 [5]: https://github.com/metosin/reitit/blob/620d0c271175a4e11d91d922b26c8162660db3f9/modules/reitit-ring/src/reitit/ring.cljc#L371-L385
 [6]: https://clojuredocs.org/clojure.core/*compiler-options*
 [7]: https://clojure.org/reference/vars
+[8]: https://clojure.org/reference/evaluation
+[9]: https://clojure.org/reference/vars#interning
+[10]: https://clojure.org/guides/repl/enhancing_your_repl_workflow#writing-repl-friendly-programs
+[11]: https://github.com/clojure-goes-fast/clj-java-decompiler
+[12]: https://www.youtube.com/watch?v=Qx0-pViyIDU&t=1799s
