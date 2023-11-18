@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html><head><title>Getting a feel for closeables</title><meta charset="utf-8" /><link href="/assets/pandoc-gfm.css" rel="stylesheet" /></head><body><header><nav><p><span style="padding-right:2rem;">Chpill&apos;s (Over) Engineering Log</span><a href="/">about</a> - <a href="/en/posts">posts</a></p></nav></header><main><h1 id="getting-a-feel-for-closeables">Getting a feel for
+<html><head><title>2023-11-05 - Getting a feel for closeables</title><meta charset="utf-8" /><link href="/assets/pandoc-gfm.css" rel="stylesheet" /></head><body><header><nav><p><span style="padding-right:2rem;">Chpill&apos;s (Over) Engineering Log</span><a href="/">about</a> - <a href="/en/posts">posts</a></p></nav></header><main><h1 id="getting-a-feel-for-closeables">Getting a feel for
 closeables</h1>
 <p><em>2023-11-05</em></p>
 <p>The other day, I stumbled upon <a
@@ -83,7 +83,7 @@ to stop the webserver.</strong></p>
 <h2 id="testing">Testing</h2>
 <p>It felt odd at first having the "run" function not do its task
 indefinitely. After all, Clojure was made for <a
-href="https://youtu.be/2V1FtfBDsLU?t=646">Situated programs</a>, long
+href="https://youtu.be/2V1FtfBDsLU?t=646">situated programs</a>, long
 running processes tangled with outside world. But it makes it a lot
 easier to work with our system in various ways. Testing is effortless
 for example:</p>
@@ -118,10 +118,11 @@ class="sourceCode clj"><code class="sourceCode clojure"><span id="cb6-1"><a href
 <p>After evaluating this code and calling <code>(start!)</code>, you
 should be able to visit <a
 href="http://localhost:54321">http://localhost:54321</a> and see the
-counter for yourself. But do not call this by hand! Your editor probably
-has some integration with tools.namespace via a plugin. For example for
-Emacs and Cider, I usually declare a <code>.dir-locals.el</code> at the
-root of the projet with the following:</p>
+counter for yourself. But do not evaluate this by hand! Your editor
+probably has some integration with tools.namespace via a plugin. For
+example for Emacs and Cider, I usually declare a
+<code>.dir-locals.el</code> at the root of the projet with the
+following:</p>
 <pre class="emacs"><code>((clojure-mode . ((cider-ns-refresh-before-fn . &quot;user/stop!&quot;)
                   (cider-ns-refresh-after-fn  . &quot;user/start!&quot;))))</code></pre>
 <p>I can then call <code>cider-ns-refresh</code> to stop my system,
@@ -135,6 +136,7 @@ my system the first time.</p>
 approach, there are already <a
 href="https://www.juxt.pro/blog/clojure-in-griffin/">positive
 reports</a> of its use, so I'm eager to use it in my projects going
-forward. In the next post, we'll explore a slightly meatier example of
-web server.</p>
-</main><footer style="margin-top:3rem;text-align:center;"><hr /><p><small>Made with <a href="https://hackage.haskell.org/package/pandoc-cli">Pandoc</a></small></p></footer></body></html>
+forward. In the <a
+href="/en/posts/rapid-feedback-webdev-with-closeables-and-reitit.html">next
+post</a>, we'll explore a slightly meatier example of web server.</p>
+</main><footer style="margin-top:3rem;text-align:center;"><hr /><p><small>Made with <a href="https://pandoc.org/">Pandoc</a></small></p></footer></body></html>
