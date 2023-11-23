@@ -1,0 +1,3 @@
+;; version should match what Babashka provides
+{:deps {hiccup/hiccup {:mvn/version "2.0.0-RC2"}
+        cheshire/cheshire {:mvn/version "5.12.0"}}}

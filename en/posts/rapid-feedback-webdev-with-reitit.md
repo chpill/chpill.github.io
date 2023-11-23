@@ -1,6 +1,8 @@
-# Rapid feedback webdev (with Reitit)
-
-_2023-11-18_
+---
+title: Rapid feedback webdev (with Reitit)
+author: Etienne Spillemaeker
+published: 2023-11-18
+---
 
 In the [previous post][1], we got aquainted with `closeables` to manage runtime
 state in our Clojure programs. It worked like a charm, but it was (purposefully)

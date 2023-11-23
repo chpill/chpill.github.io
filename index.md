@@ -1,3 +1,7 @@
+---
+title: Chpill's (Over) Engineering Log
+---
+
 Hello, I'm Etienne Spillemaeker, also known as
 [chpill](https://github.com/chpill) on Github. I'm a software engineer living in
 France, near Paris.

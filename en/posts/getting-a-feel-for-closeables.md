@@ -1,6 +1,10 @@
-# Getting a feel for closeables
+---
+title: Getting a feel for closeables
+subtitle: A minimalist approach to runtime state in Clojure programs.
+author: Etienne Spillemaeker
+published: 2023-11-05
+---
 
-_2023-11-05_
 
 The other day, I stumbled upon [this article by Maciej Szajna][1] which presents
 a minimalist way to declare and manage runtime state in your Clojure programs.

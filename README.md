@@ -14,17 +14,3 @@ git worktree add publish gh-pages
 
 To avoid having an horizontal scroll appear on code blocks, keep the line length
 strictly below 70 characters.
-
-### Dev
-
-```bash
-nix shell nixpkgs#babashka nixpkgs#pandoc nixpkgs#httplz nixpkgs#entr
-
-bb render.clj
-
-while sleep 0.1; do ls src/*.rb | entr -d bb render.clj; done
-
-cd publish
-
-httplz
-```
