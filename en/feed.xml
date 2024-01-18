@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2023-11-18T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Rapid feedback webdev (with Reitit)</title><published>2023-11-18T00:00:00Z</published><updated>2023-11-18T00:00:00Z</updated><id>https://chpill.github.io/en/posts/rapid-feedback-webdev-with-reitit.html</id><content type="html" xml:lang="en">&lt;p&gt;In the &lt;a
+href=&quot;/en/posts/getting-a-feel-for-closeables.html&quot;&gt;previous post&lt;/a&gt;,
+we got aquainted with &lt;code&gt;closeables&lt;/code&gt; to manage runtime state in
+our Clojure programs. It worked like a charm, but it was (purposefully)
+very simple. In real world applications, it can be painful to stop and
+start a system every time you make a change (for example: if you need to
+populate a development database with a lot of data). That&apos;s why &lt;a
+href=&quot;https://github.com/weavejester/integrant/#suspending-and-resuming&quot;&gt;Integrant&lt;/a&gt;
+features a suspend/resume mechanism, to get a kind of &quot;soft reload&quot; of
+your system. Obviously, we cannot do that here, but let me share a DIY
+trick mentionned in the &lt;a
+href=&quot;https://cljdoc.org/d/metosin/reitit/0.7.0-alpha7/doc/advanced/dev-workflow&quot;&gt;Reitit
+documentation&lt;/a&gt; that will help keep your feedback loop short as you
+are building a website or an api server. We&apos;ll then dig a little deeper
+into why it works and when it doesn&apos;t, so that you may reuse this
+pattern outside of webdev as well.&lt;/p&gt;
+&lt;h2 id=&quot;simple-routing-fragments&quot;&gt;Simple routing fragments&lt;/h2&gt;
+&lt;p&gt;For this example, we&apos;ll create a bunch of files to mimick a more
+complex project structure. The code is available in this &lt;a
+href=&quot;https://github.com/chpill/demo-closeable/tree/master/meatier-webserver&quot;&gt;repository&lt;/a&gt;.
+First, let&apos;s create a namespace where we&apos;ll put the incrementing counter
+function from the &lt;a
+href=&quot;/en/posts/getting-a-feel-for-closeables.html&quot;&gt;previous
+post&lt;/a&gt;.&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb1&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb1-1&quot;&gt;&lt;a href=&quot;#cb1-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;ns&lt;/span&gt; demo-closeable.deeply-nested)&lt;/span&gt;
+&lt;span id=&quot;cb1-2&quot;&gt;&lt;a href=&quot;#cb1-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-3&quot;&gt;&lt;a href=&quot;#cb1-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-4&quot;&gt;&lt;a href=&quot;#cb1-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; real-worldish-function &lt;/span&gt;[{&lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; _req &lt;span class=&quot;at&quot;&gt;:keys&lt;/span&gt; [counter]}]&lt;/span&gt;
+&lt;span id=&quot;cb1-5&quot;&gt;&lt;a href=&quot;#cb1-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-6&quot;&gt;&lt;a href=&quot;#cb1-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Real-worldish counter: &amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;swap!&lt;/span&gt; counter &lt;span class=&quot;kw&quot;&gt;inc&lt;/span&gt;))})&lt;/span&gt;
+&lt;span id=&quot;cb1-7&quot;&gt;&lt;a href=&quot;#cb1-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-8&quot;&gt;&lt;a href=&quot;#cb1-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; routes &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb1-9&quot;&gt;&lt;a href=&quot;#cb1-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  [&lt;span class=&quot;st&quot;&gt;&amp;quot;/counter&amp;quot;&lt;/span&gt; real-worldish-function])&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;The counter atom is now retrieved through a custom key associated to
+the request argument. Notice that we provide a fragment of a Reitit
+routing table, but we do it in a seemingly strange way, by wrapping it
+in a &lt;code&gt;routes&lt;/code&gt; function of no arguments. We&apos;ll explain why
+later. Let&apos;s add another namespace that will require the first one.&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb2&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb2-1&quot;&gt;&lt;a href=&quot;#cb2-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;ns&lt;/span&gt; demo-closeable.nested&lt;/span&gt;
+&lt;span id=&quot;cb2-2&quot;&gt;&lt;a href=&quot;#cb2-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;at&quot;&gt;:require&lt;/span&gt; [demo-closeable.deeply-nested &lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; deeply-nested]))&lt;/span&gt;
+&lt;span id=&quot;cb2-3&quot;&gt;&lt;a href=&quot;#cb2-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-4&quot;&gt;&lt;a href=&quot;#cb2-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-5&quot;&gt;&lt;a href=&quot;#cb2-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; routes &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb2-6&quot;&gt;&lt;a href=&quot;#cb2-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  [[&lt;span class=&quot;st&quot;&gt;&amp;quot;/ping&amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_req] {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-7&quot;&gt;&lt;a href=&quot;#cb2-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                        &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;nested pong&amp;quot;&lt;/span&gt;})]&lt;/span&gt;
+&lt;span id=&quot;cb2-8&quot;&gt;&lt;a href=&quot;#cb2-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   [&lt;span class=&quot;st&quot;&gt;&amp;quot;/deeply-nested&amp;quot;&lt;/span&gt; (deeply-nested/routes)]])&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Again, the same pattern. The &lt;code&gt;routes&lt;/code&gt; function of the
+previous namespace is called inside the routing fragment of the current
+namespace. Let&apos;s go up another level, and create a namespace that will
+build the complete routing table.&lt;/p&gt;
+&lt;h2 id=&quot;root-handler&quot;&gt;Root handler&lt;/h2&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb3&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb3-1&quot;&gt;&lt;a href=&quot;#cb3-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;ns&lt;/span&gt; demo-closeable.root-handler&lt;/span&gt;
+&lt;span id=&quot;cb3-2&quot;&gt;&lt;a href=&quot;#cb3-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;at&quot;&gt;:require&lt;/span&gt; [demo-closeable.nested &lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; nested]&lt;/span&gt;
+&lt;span id=&quot;cb3-3&quot;&gt;&lt;a href=&quot;#cb3-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;            [reitit.ring &lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; rr]))&lt;/span&gt;
+&lt;span id=&quot;cb3-4&quot;&gt;&lt;a href=&quot;#cb3-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-5&quot;&gt;&lt;a href=&quot;#cb3-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-6&quot;&gt;&lt;a href=&quot;#cb3-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; complete-routes &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb3-7&quot;&gt;&lt;a href=&quot;#cb3-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  [&lt;span class=&quot;st&quot;&gt;&amp;quot;&amp;quot;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-8&quot;&gt;&lt;a href=&quot;#cb3-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   [&lt;span class=&quot;st&quot;&gt;&amp;quot;/nested&amp;quot;&lt;/span&gt; (nested/routes)]&lt;/span&gt;
+&lt;span id=&quot;cb3-9&quot;&gt;&lt;a href=&quot;#cb3-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   [&lt;span class=&quot;st&quot;&gt;&amp;quot;/ping&amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_req] {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-10&quot;&gt;&lt;a href=&quot;#cb3-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                        &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;pong&amp;quot;&lt;/span&gt;})]])&lt;/span&gt;
+&lt;span id=&quot;cb3-11&quot;&gt;&lt;a href=&quot;#cb3-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-12&quot;&gt;&lt;a href=&quot;#cb3-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; inject-counter &lt;/span&gt;[counter]&lt;/span&gt;
+&lt;span id=&quot;cb3-13&quot;&gt;&lt;a href=&quot;#cb3-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [handler]&lt;/span&gt;
+&lt;span id=&quot;cb3-14&quot;&gt;&lt;a href=&quot;#cb3-14&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; inject-counter-middleware [req]&lt;/span&gt;
+&lt;span id=&quot;cb3-15&quot;&gt;&lt;a href=&quot;#cb3-15&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;      (handler (&lt;span class=&quot;kw&quot;&gt;assoc&lt;/span&gt; req &lt;span class=&quot;at&quot;&gt;:counter&lt;/span&gt; counter)))))&lt;/span&gt;
+&lt;span id=&quot;cb3-16&quot;&gt;&lt;a href=&quot;#cb3-16&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-17&quot;&gt;&lt;a href=&quot;#cb3-17&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; make &lt;/span&gt;[counter]&lt;/span&gt;
+&lt;span id=&quot;cb3-18&quot;&gt;&lt;a href=&quot;#cb3-18&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (rr/ring-handler (rr/router (complete-routes))&lt;/span&gt;
+&lt;span id=&quot;cb3-19&quot;&gt;&lt;a href=&quot;#cb3-19&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                   (rr/create-default-handler&lt;/span&gt;
+&lt;span id=&quot;cb3-20&quot;&gt;&lt;a href=&quot;#cb3-20&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                    {&lt;span class=&quot;at&quot;&gt;:not-found&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;constantly&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-21&quot;&gt;&lt;a href=&quot;#cb3-21&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                                 {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;404&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-22&quot;&gt;&lt;a href=&quot;#cb3-22&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                                  &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Real-worldish 404 page&amp;quot;&lt;/span&gt;})})&lt;/span&gt;
+&lt;span id=&quot;cb3-23&quot;&gt;&lt;a href=&quot;#cb3-23&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                   {&lt;span class=&quot;at&quot;&gt;:middleware&lt;/span&gt; [(inject-counter counter)]}))&lt;/span&gt;
+&lt;span id=&quot;cb3-24&quot;&gt;&lt;a href=&quot;#cb3-24&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-25&quot;&gt;&lt;a href=&quot;#cb3-25&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; make-reloading &lt;/span&gt;[&amp;amp; args]&lt;/span&gt;
+&lt;span id=&quot;cb3-26&quot;&gt;&lt;a href=&quot;#cb3-26&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (rr/reloading-ring-handler #(&lt;span class=&quot;kw&quot;&gt;apply&lt;/span&gt; make args)))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Now, we get to more interesting functions:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;complete-routes&lt;/code&gt; returns the complete routing table of
+the application.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;inject-counter&lt;/code&gt; returns a synchronous ring middleware
+that will provide the counter atom to any handler it is applied to.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;make&lt;/code&gt; turns the routing table into a fully fledged
+handler, with the previous middleware being applied globally.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;make-reloading&lt;/code&gt; calls a handy development helper from
+Reitit: the &lt;a
+href=&quot;https://github.com/metosin/reitit/blob/620d0c271175a4e11d91d922b26c8162660db3f9/modules/reitit-ring/src/reitit/ring.cljc#L371-L385&quot;&gt;reloading-ring-handler&lt;/a&gt;.
+It will call &lt;code&gt;make&lt;/code&gt; to recreate the handler on every
+request.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Because we have made every routing fragment a function, when
+&lt;code&gt;make&lt;/code&gt; is called on each request, it in turn call every one
+of them, and the resulting complete routing table will contain the last
+evaluated value of every &lt;code&gt;routes&lt;/code&gt; and leaf handler, however
+nested they may be.&lt;/p&gt;
+&lt;h2 id=&quot;the-system&quot;&gt;The system&lt;/h2&gt;
+&lt;p&gt;And now, the entry point of the webserver:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb4&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb4-1&quot;&gt;&lt;a href=&quot;#cb4-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;ns&lt;/span&gt; demo-closeable.meatier-webserver&lt;/span&gt;
+&lt;span id=&quot;cb4-2&quot;&gt;&lt;a href=&quot;#cb4-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;at&quot;&gt;:require&lt;/span&gt; [ring.adapter.jetty &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [run-jetty]]&lt;/span&gt;
+&lt;span id=&quot;cb4-3&quot;&gt;&lt;a href=&quot;#cb4-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;            [demo-closeable.root-handler &lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; handler]))&lt;/span&gt;
+&lt;span id=&quot;cb4-4&quot;&gt;&lt;a href=&quot;#cb4-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb4-5&quot;&gt;&lt;a href=&quot;#cb4-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; closeable&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb4-6&quot;&gt;&lt;a href=&quot;#cb4-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  ([value] (closeable value &lt;span class=&quot;kw&quot;&gt;identity&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb4-7&quot;&gt;&lt;a href=&quot;#cb4-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  ([value close]&lt;/span&gt;
+&lt;span id=&quot;cb4-8&quot;&gt;&lt;a href=&quot;#cb4-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   (&lt;span class=&quot;kw&quot;&gt;reify&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb4-9&quot;&gt;&lt;a href=&quot;#cb4-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     clojure.lang.IDeref (&lt;span class=&quot;kw&quot;&gt;deref&lt;/span&gt; [_] value)&lt;/span&gt;
+&lt;span id=&quot;cb4-10&quot;&gt;&lt;a href=&quot;#cb4-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     java.io.Closeable (close [_] (close value)))))&lt;/span&gt;
+&lt;span id=&quot;cb4-11&quot;&gt;&lt;a href=&quot;#cb4-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb4-12&quot;&gt;&lt;a href=&quot;#cb4-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; run-with-webserver &lt;/span&gt;[config f]&lt;/span&gt;
+&lt;span id=&quot;cb4-13&quot;&gt;&lt;a href=&quot;#cb4-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;with-open&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb4-14&quot;&gt;&lt;a href=&quot;#cb4-14&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    [counter (closeable (&lt;span class=&quot;kw&quot;&gt;atom&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;42&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb4-15&quot;&gt;&lt;a href=&quot;#cb4-15&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     handler (closeable ((&lt;span class=&quot;kw&quot;&gt;if&lt;/span&gt; (&lt;span class=&quot;at&quot;&gt;:dev&lt;/span&gt; config)&lt;/span&gt;
+&lt;span id=&quot;cb4-16&quot;&gt;&lt;a href=&quot;#cb4-16&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                           handler/make-reloading&lt;/span&gt;
+&lt;span id=&quot;cb4-17&quot;&gt;&lt;a href=&quot;#cb4-17&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                           handler/make)&lt;/span&gt;
+&lt;span id=&quot;cb4-18&quot;&gt;&lt;a href=&quot;#cb4-18&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                         &lt;span class=&quot;at&quot;&gt;@counter&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb4-19&quot;&gt;&lt;a href=&quot;#cb4-19&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     webserver (closeable (run-jetty &lt;span class=&quot;at&quot;&gt;@handler&lt;/span&gt; {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; (&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; config)&lt;/span&gt;
+&lt;span id=&quot;cb4-20&quot;&gt;&lt;a href=&quot;#cb4-20&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                                               &lt;span class=&quot;at&quot;&gt;:join&lt;/span&gt;? &lt;span class=&quot;va&quot;&gt;false&lt;/span&gt;})&lt;/span&gt;
+&lt;span id=&quot;cb4-21&quot;&gt;&lt;a href=&quot;#cb4-21&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                          #(.stop &lt;span class=&quot;va&quot;&gt;%&lt;/span&gt;))]&lt;/span&gt;
+&lt;span id=&quot;cb4-22&quot;&gt;&lt;a href=&quot;#cb4-22&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (f &lt;span class=&quot;at&quot;&gt;@webserver&lt;/span&gt;)))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Compared to the previous post, the only difference here is the
+handler, where we check the config to decide which flavor of handler we
+want:
+&lt;code&gt;(if (:dev config) handler/make-reloading handler/make)&lt;/code&gt;. Use
+the new config parameter we introduced to launch the server:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb5&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb5-1&quot;&gt;&lt;a href=&quot;#cb5-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(run-with-webserver {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;54321&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:dev&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;true&lt;/span&gt;}&lt;/span&gt;
+&lt;span id=&quot;cb5-2&quot;&gt;&lt;a href=&quot;#cb5-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                    #(.&lt;span class=&quot;kw&quot;&gt;join&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;%&lt;/span&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Open &lt;a
+href=&quot;http://localhost:54321/nested/deeply-nested/counter&quot;&gt;http://localhost:54321/nested/deeply-nested/counter&lt;/a&gt;
+in your browser, you should see the new counter page.&lt;/p&gt;
+&lt;p&gt;Now, try changing and re-evaluating the leaf handlers and the routing
+fragments. You&apos;ll see that the changes are picked up as soon as you
+refresh the page in your browser. For my particular workflow with emacs
+and CIDER, that mean I will simply
+&lt;code&gt;cider-eval-defun-at-point&lt;/code&gt; to re-evaluate the top-level form
+I&apos;m currently editing, and then I can refresh the page in a browser for
+example.&lt;/p&gt;
+&lt;p&gt;To verify this behaviour a little more rigorously, we can write a
+test like this:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb6&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb6-1&quot;&gt;&lt;a href=&quot;#cb6-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;ns&lt;/span&gt; demo-closeable.meatier-webserver-test&lt;/span&gt;
+&lt;span id=&quot;cb6-2&quot;&gt;&lt;a href=&quot;#cb6-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;at&quot;&gt;:require&lt;/span&gt; [clojure.&lt;span class=&quot;kw&quot;&gt;test&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [&lt;span class=&quot;bu&quot;&gt;deftest&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; is &lt;/span&gt;&lt;span class=&quot;kw&quot;&gt;run-tests&lt;/span&gt;]]&lt;/span&gt;
+&lt;span id=&quot;cb6-3&quot;&gt;&lt;a href=&quot;#cb6-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;            [demo-closeable.deeply-nested &lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; dn]&lt;/span&gt;
+&lt;span id=&quot;cb6-4&quot;&gt;&lt;a href=&quot;#cb6-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;            [demo-closeable.meatier-webserver&lt;/span&gt;
+&lt;span id=&quot;cb6-5&quot;&gt;&lt;a href=&quot;#cb6-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;             &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [run-with-webserver]]))&lt;/span&gt;
+&lt;span id=&quot;cb6-6&quot;&gt;&lt;a href=&quot;#cb6-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-7&quot;&gt;&lt;a href=&quot;#cb6-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-8&quot;&gt;&lt;a href=&quot;#cb6-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;deftest&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; test-reloading-webserver&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-9&quot;&gt;&lt;a href=&quot;#cb6-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;let&lt;/span&gt; [port &lt;span class=&quot;dv&quot;&gt;12345&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-10&quot;&gt;&lt;a href=&quot;#cb6-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        url (&lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;http://localhost:&amp;quot;&lt;/span&gt; port&lt;/span&gt;
+&lt;span id=&quot;cb6-11&quot;&gt;&lt;a href=&quot;#cb6-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                 &lt;span class=&quot;st&quot;&gt;&amp;quot;/nested/deeply-nested/counter&amp;quot;&lt;/span&gt;)]&lt;/span&gt;
+&lt;span id=&quot;cb6-12&quot;&gt;&lt;a href=&quot;#cb6-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (run-with-webserver&lt;/span&gt;
+&lt;span id=&quot;cb6-13&quot;&gt;&lt;a href=&quot;#cb6-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; port &lt;span class=&quot;at&quot;&gt;:dev&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;true&lt;/span&gt;}&lt;/span&gt;
+&lt;span id=&quot;cb6-14&quot;&gt;&lt;a href=&quot;#cb6-14&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_webserver]&lt;/span&gt;
+&lt;span id=&quot;cb6-15&quot;&gt;&lt;a href=&quot;#cb6-15&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Real-worldish counter: 43&amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url)))&lt;/span&gt;
+&lt;span id=&quot;cb6-16&quot;&gt;&lt;a href=&quot;#cb6-16&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-17&quot;&gt;&lt;a href=&quot;#cb6-17&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       (&lt;span class=&quot;kw&quot;&gt;let&lt;/span&gt; [original-function-value dn/real-worldish-function]&lt;/span&gt;
+&lt;span id=&quot;cb6-18&quot;&gt;&lt;a href=&quot;#cb6-18&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (&lt;span class=&quot;kw&quot;&gt;alter-var-root&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-19&quot;&gt;&lt;a href=&quot;#cb6-19&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;          &lt;span class=&quot;va&quot;&gt;#&amp;#39;dn/real-worldish-function&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-20&quot;&gt;&lt;a href=&quot;#cb6-20&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;          (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_f] (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_req] {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-21&quot;&gt;&lt;a href=&quot;#cb6-21&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                               &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;LOCALLY RELOADED!&amp;quot;&lt;/span&gt;})))&lt;/span&gt;
+&lt;span id=&quot;cb6-22&quot;&gt;&lt;a href=&quot;#cb6-22&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-23&quot;&gt;&lt;a href=&quot;#cb6-23&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;LOCALLY RELOADED!&amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url)))&lt;/span&gt;
+&lt;span id=&quot;cb6-24&quot;&gt;&lt;a href=&quot;#cb6-24&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-25&quot;&gt;&lt;a href=&quot;#cb6-25&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (&lt;span class=&quot;kw&quot;&gt;alter-var-root&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;#&amp;#39;dn/real-worldish-function&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-26&quot;&gt;&lt;a href=&quot;#cb6-26&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                         (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_f] original-function-value))&lt;/span&gt;
+&lt;span id=&quot;cb6-27&quot;&gt;&lt;a href=&quot;#cb6-27&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-28&quot;&gt;&lt;a href=&quot;#cb6-28&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Real-worldish counter: 44&amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url))))))))&lt;/span&gt;
+&lt;span id=&quot;cb6-29&quot;&gt;&lt;a href=&quot;#cb6-29&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-30&quot;&gt;&lt;a href=&quot;#cb6-30&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;comment&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;run-tests&lt;/span&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2 id=&quot;where-if-falls-short&quot;&gt;Where if falls short&lt;/h2&gt;
+&lt;p&gt;To dig a little deeper, this works because when clojure functions are
+evaluated (which specifically means &quot;compiled&quot; by the Clojure compiler
+here), a distinction is made between symbols referencing global &lt;a
+href=&quot;https://clojure.org/reference/vars&quot;&gt;vars&lt;/a&gt; and others in the
+lexical scope. You can get the full picture by reading about &lt;a
+href=&quot;https://clojure.org/reference/evaluation&quot;&gt;Clojure&apos;s
+evaluation&lt;/a&gt;. When the function is invoked, every var in its body will
+be dereferenced (or &quot;traversed&quot;), so you will see the last evaluated
+value of those vars (unless you are compiling with &lt;a
+href=&quot;https://clojuredocs.org/clojure.core/*compiler-options*&quot;&gt;direct-linking&lt;/a&gt;
+enabled, but that&apos;s not usually the case during development).&lt;/p&gt;
+&lt;p&gt;We can observe this difference when the value of a function is
+captured in the closure of another. Let&apos;s add an example of this to the
+&lt;code&gt;deeply-nested&lt;/code&gt; namespace:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb7&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb7-1&quot;&gt;&lt;a href=&quot;#cb7-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;ns&lt;/span&gt; demo-closeable.deeply-nested)&lt;/span&gt;
+&lt;span id=&quot;cb7-2&quot;&gt;&lt;a href=&quot;#cb7-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-3&quot;&gt;&lt;a href=&quot;#cb7-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-4&quot;&gt;&lt;a href=&quot;#cb7-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; real-worldish-function &lt;/span&gt;[{&lt;span class=&quot;at&quot;&gt;:as&lt;/span&gt; _req &lt;span class=&quot;at&quot;&gt;:keys&lt;/span&gt; [counter]}]&lt;/span&gt;
+&lt;span id=&quot;cb7-5&quot;&gt;&lt;a href=&quot;#cb7-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-6&quot;&gt;&lt;a href=&quot;#cb7-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Real-worldish counter: &amp;quot;&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;swap!&lt;/span&gt; counter &lt;span class=&quot;kw&quot;&gt;inc&lt;/span&gt;))})&lt;/span&gt;
+&lt;span id=&quot;cb7-7&quot;&gt;&lt;a href=&quot;#cb7-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-8&quot;&gt;&lt;a href=&quot;#cb7-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-9&quot;&gt;&lt;a href=&quot;#cb7-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; example-fn &lt;/span&gt;[_]&lt;/span&gt;
+&lt;span id=&quot;cb7-10&quot;&gt;&lt;a href=&quot;#cb7-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-11&quot;&gt;&lt;a href=&quot;#cb7-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Re-evaluate me if you can!&amp;quot;&lt;/span&gt;})&lt;/span&gt;
+&lt;span id=&quot;cb7-12&quot;&gt;&lt;a href=&quot;#cb7-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-13&quot;&gt;&lt;a href=&quot;#cb7-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; smug-middleware &lt;/span&gt;[handler]&lt;/span&gt;
+&lt;span id=&quot;cb7-14&quot;&gt;&lt;a href=&quot;#cb7-14&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; inner-function [req]&lt;/span&gt;
+&lt;span id=&quot;cb7-15&quot;&gt;&lt;a href=&quot;#cb7-15&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;update&lt;/span&gt; (handler req)&lt;/span&gt;
+&lt;span id=&quot;cb7-16&quot;&gt;&lt;a href=&quot;#cb7-16&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;            &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot; -- Sent from my server. I use Clojure btw.&amp;quot;&lt;/span&gt;)))&lt;/span&gt;
+&lt;span id=&quot;cb7-17&quot;&gt;&lt;a href=&quot;#cb7-17&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-18&quot;&gt;&lt;a href=&quot;#cb7-18&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;def&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; captured-fn &lt;/span&gt;(smug-middleware example-fn))&lt;/span&gt;
+&lt;span id=&quot;cb7-19&quot;&gt;&lt;a href=&quot;#cb7-19&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb7-20&quot;&gt;&lt;a href=&quot;#cb7-20&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; routes &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb7-21&quot;&gt;&lt;a href=&quot;#cb7-21&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  [[&lt;span class=&quot;st&quot;&gt;&amp;quot;/counter&amp;quot;&lt;/span&gt; real-worldish-function]&lt;/span&gt;
+&lt;span id=&quot;cb7-22&quot;&gt;&lt;a href=&quot;#cb7-22&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   [&lt;span class=&quot;st&quot;&gt;&amp;quot;/closure-issue&amp;quot;&lt;/span&gt; captured-fn]])&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Here, we &quot;augmented&quot; &lt;code&gt;example-fn&lt;/code&gt; using the
+&lt;code&gt;smug-middleware&lt;/code&gt;, and &lt;code&gt;def&lt;/code&gt;ed the result in the
+&lt;code&gt;captured-fn&lt;/code&gt; var. If you make a change to
+&lt;code&gt;example-fn&lt;/code&gt; and naively re-evaluate it, you will notice that
+the change is not picked up when you visit &lt;a
+href=&quot;http://lol:54321/nested/deeply-nested/closure-issue&quot;&gt;http://lol:54321/nested/deeply-nested/closure-issue&lt;/a&gt;.
+That is because the &lt;code&gt;example-fn&lt;/code&gt; var is not in the body of
+the &lt;code&gt;inner-function&lt;/code&gt; that was given to the routing fragment.
+If you need to convince yourself of this behaviour, try changing the
+middleware like so:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb8&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb8-1&quot;&gt;&lt;a href=&quot;#cb8-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; smug-middleware &lt;/span&gt;[handler]&lt;/span&gt;
+&lt;span id=&quot;cb8-2&quot;&gt;&lt;a href=&quot;#cb8-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; inner-function [req]&lt;/span&gt;
+&lt;span id=&quot;cb8-3&quot;&gt;&lt;a href=&quot;#cb8-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;update&lt;/span&gt; (example-fn req)&lt;/span&gt;
+&lt;span id=&quot;cb8-4&quot;&gt;&lt;a href=&quot;#cb8-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;            &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot; -- I like hammocks and private jokes.&amp;quot;&lt;/span&gt;)))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Do a full namespace eval, or a full system reload, and then try
+changing and evaluating only &lt;code&gt;example-fn&lt;/code&gt; again. This time,
+the change will be picked up. The indirection of the middleware is still
+the same, the only difference is that we did not use the
+&lt;code&gt;handler&lt;/code&gt; value that was captured in the closure of the
+&lt;code&gt;inner-function&lt;/code&gt; (which still contains the previous value).
+Instead, we directly used the var &lt;code&gt;example-fn&lt;/code&gt;, which is
+dereferenced on every call of &lt;code&gt;inner-function&lt;/code&gt; behind the
+scenes. To be more precise, it works because of the &lt;a
+href=&quot;https://clojure.org/reference/vars#interning&quot;&gt;interning of
+vars&lt;/a&gt;. This is a really important thing to grasp, so be sure to also
+check this &lt;a
+href=&quot;https://clojure.org/guides/repl/enhancing_your_repl_workflow#writing-repl-friendly-programs&quot;&gt;section
+of the official clojure REPL guide&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;(If you are curious in seeing exactly how this plays out in the lower
+level code, you can use the &lt;a
+href=&quot;https://github.com/clojure-goes-fast/clj-java-decompiler&quot;&gt;clj-java-decompiler&lt;/a&gt;
+to compare the 2 functions, but it isn&apos;t vital to the point being
+made.)&lt;/p&gt;
+&lt;details&gt;
+&lt;summary&gt;Show me the low level stuff anyway&lt;/summary&gt;
+
+&lt;p&gt;Here&apos;s the first version of the &lt;code&gt;smug-middleware&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb9&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb9-1&quot;&gt;&lt;a href=&quot;#cb9-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;require&lt;/span&gt; &amp;#39;[clj-java-decompiler.core &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [decompile]])&lt;/span&gt;
+&lt;span id=&quot;cb9-2&quot;&gt;&lt;a href=&quot;#cb9-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb9-3&quot;&gt;&lt;a href=&quot;#cb9-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;-&amp;gt;&amp;gt;&lt;/span&gt; (&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; smug-middleware &lt;/span&gt;[handler]&lt;/span&gt;
+&lt;span id=&quot;cb9-4&quot;&gt;&lt;a href=&quot;#cb9-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; inner-function [req]&lt;/span&gt;
+&lt;span id=&quot;cb9-5&quot;&gt;&lt;a href=&quot;#cb9-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;           (&lt;span class=&quot;kw&quot;&gt;update&lt;/span&gt; (handler req)&lt;/span&gt;
+&lt;span id=&quot;cb9-6&quot;&gt;&lt;a href=&quot;#cb9-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                   &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot; -- Sent from my server. I use Clojure btw.&amp;quot;&lt;/span&gt;)))&lt;/span&gt;
+&lt;span id=&quot;cb9-7&quot;&gt;&lt;a href=&quot;#cb9-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       decompile&lt;/span&gt;
+&lt;span id=&quot;cb9-8&quot;&gt;&lt;a href=&quot;#cb9-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       &lt;span class=&quot;kw&quot;&gt;with-out-str&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb9-9&quot;&gt;&lt;a href=&quot;#cb9-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       (spit &lt;span class=&quot;st&quot;&gt;&amp;quot;/tmp/decompiled-original.java&amp;quot;&lt;/span&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb10&quot;&gt;&lt;pre
+class=&quot;sourceCode java&quot;&gt;&lt;code class=&quot;sourceCode java&quot;&gt;&lt;span id=&quot;cb10-1&quot;&gt;&lt;a href=&quot;#cb10-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;co&quot;&gt;// Decompiling class: demo_closeable/deeply_nested$smug_middleware&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-2&quot;&gt;&lt;a href=&quot;#cb10-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;package&lt;/span&gt;&lt;span class=&quot;im&quot;&gt; demo_closeable&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-3&quot;&gt;&lt;a href=&quot;#cb10-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-4&quot;&gt;&lt;a href=&quot;#cb10-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;im&quot;&gt;clojure&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;im&quot;&gt;lang&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.*;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-5&quot;&gt;&lt;a href=&quot;#cb10-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-6&quot;&gt;&lt;a href=&quot;#cb10-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;class&lt;/span&gt; deeply_nested$smug_middleware &lt;span class=&quot;kw&quot;&gt;extends&lt;/span&gt; AFunction&lt;/span&gt;
+&lt;span id=&quot;cb10-7&quot;&gt;&lt;a href=&quot;#cb10-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-8&quot;&gt;&lt;a href=&quot;#cb10-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invokeStatic&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-9&quot;&gt;&lt;a href=&quot;#cb10-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;cf&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;new&lt;/span&gt; deeply_nested$smug_middleware$&lt;span class=&quot;fu&quot;&gt;inner_function__13650&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;handler&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-10&quot;&gt;&lt;a href=&quot;#cb10-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-11&quot;&gt;&lt;a href=&quot;#cb10-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-12&quot;&gt;&lt;a href=&quot;#cb10-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;at&quot;&gt;@Override&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-13&quot;&gt;&lt;a href=&quot;#cb10-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-14&quot;&gt;&lt;a href=&quot;#cb10-14&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;cf&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invokeStatic&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;handler&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-15&quot;&gt;&lt;a href=&quot;#cb10-15&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-16&quot;&gt;&lt;a href=&quot;#cb10-16&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-17&quot;&gt;&lt;a href=&quot;#cb10-17&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-18&quot;&gt;&lt;a href=&quot;#cb10-18&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-19&quot;&gt;&lt;a href=&quot;#cb10-19&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;co&quot;&gt;// Decompiling class: demo_closeable/deeply_nested$smug_middleware$inner_function__13650&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-20&quot;&gt;&lt;a href=&quot;#cb10-20&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;package&lt;/span&gt;&lt;span class=&quot;im&quot;&gt; demo_closeable&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-21&quot;&gt;&lt;a href=&quot;#cb10-21&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-22&quot;&gt;&lt;a href=&quot;#cb10-22&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;im&quot;&gt;clojure&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;im&quot;&gt;lang&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.*;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-23&quot;&gt;&lt;a href=&quot;#cb10-23&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-24&quot;&gt;&lt;a href=&quot;#cb10-24&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;class&lt;/span&gt; deeply_nested$smug_middleware$inner_function__13650 &lt;span class=&quot;kw&quot;&gt;extends&lt;/span&gt; AFunction&lt;/span&gt;
+&lt;span id=&quot;cb10-25&quot;&gt;&lt;a href=&quot;#cb10-25&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-26&quot;&gt;&lt;a href=&quot;#cb10-26&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-27&quot;&gt;&lt;a href=&quot;#cb10-27&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Var __update&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-28&quot;&gt;&lt;a href=&quot;#cb10-28&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Keyword const__1&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-29&quot;&gt;&lt;a href=&quot;#cb10-29&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Var __str&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-30&quot;&gt;&lt;a href=&quot;#cb10-30&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-31&quot;&gt;&lt;a href=&quot;#cb10-31&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; deeply_nested$smug_middleware$&lt;span class=&quot;fu&quot;&gt;inner_function__13650&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-32&quot;&gt;&lt;a href=&quot;#cb10-32&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;kw&quot;&gt;this&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;handler&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-33&quot;&gt;&lt;a href=&quot;#cb10-33&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-34&quot;&gt;&lt;a href=&quot;#cb10-34&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-35&quot;&gt;&lt;a href=&quot;#cb10-35&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;at&quot;&gt;@Override&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-36&quot;&gt;&lt;a href=&quot;#cb10-36&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; req&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-37&quot;&gt;&lt;a href=&quot;#cb10-37&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; IFn fn &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;IFn&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt;__update&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;getRawRoot&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;();&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-38&quot;&gt;&lt;a href=&quot;#cb10-38&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; invoke &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;((&lt;/span&gt;IFn&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;kw&quot;&gt;this&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;handler&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;req&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-39&quot;&gt;&lt;a href=&quot;#cb10-39&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Keyword const__1 &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; const__1&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-40&quot;&gt;&lt;a href=&quot;#cb10-40&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; rawRoot &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; __str&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;getRawRoot&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;();&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-41&quot;&gt;&lt;a href=&quot;#cb10-41&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;String&lt;/span&gt; s &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot; -- Sent from my server. I use Clojure btw.&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-42&quot;&gt;&lt;a href=&quot;#cb10-42&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;kw&quot;&gt;this&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;null&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-43&quot;&gt;&lt;a href=&quot;#cb10-43&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;cf&quot;&gt;return&lt;/span&gt; fn&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;invoke&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; const__1&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; rawRoot&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; s&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-44&quot;&gt;&lt;a href=&quot;#cb10-44&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-45&quot;&gt;&lt;a href=&quot;#cb10-45&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-46&quot;&gt;&lt;a href=&quot;#cb10-46&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-47&quot;&gt;&lt;a href=&quot;#cb10-47&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        __update &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;var&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;st&quot;&gt;&amp;quot;clojure.core&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;update&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-48&quot;&gt;&lt;a href=&quot;#cb10-48&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        const__1 &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;keyword&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kw&quot;&gt;null&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;body&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-49&quot;&gt;&lt;a href=&quot;#cb10-49&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        __str &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;var&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;st&quot;&gt;&amp;quot;clojure.core&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;str&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-50&quot;&gt;&lt;a href=&quot;#cb10-50&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb10-51&quot;&gt;&lt;a href=&quot;#cb10-51&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Here&apos;s the second version of the &lt;code&gt;smug-middleware&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb11&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb11-1&quot;&gt;&lt;a href=&quot;#cb11-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;-&amp;gt;&amp;gt;&lt;/span&gt; (&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; smug-middleware &lt;/span&gt;[handler]&lt;/span&gt;
+&lt;span id=&quot;cb11-2&quot;&gt;&lt;a href=&quot;#cb11-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; inner-function [req]&lt;/span&gt;
+&lt;span id=&quot;cb11-3&quot;&gt;&lt;a href=&quot;#cb11-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;           (&lt;span class=&quot;kw&quot;&gt;update&lt;/span&gt; (example-fn req)&lt;/span&gt;
+&lt;span id=&quot;cb11-4&quot;&gt;&lt;a href=&quot;#cb11-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                   &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot; -- I like hammocks and private jokes.&amp;quot;&lt;/span&gt;)))&lt;/span&gt;
+&lt;span id=&quot;cb11-5&quot;&gt;&lt;a href=&quot;#cb11-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       decompile&lt;/span&gt;
+&lt;span id=&quot;cb11-6&quot;&gt;&lt;a href=&quot;#cb11-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       &lt;span class=&quot;kw&quot;&gt;with-out-str&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb11-7&quot;&gt;&lt;a href=&quot;#cb11-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;       (spit &lt;span class=&quot;st&quot;&gt;&amp;quot;/tmp/decompiled-with-modification.java&amp;quot;&lt;/span&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb12&quot;&gt;&lt;pre
+class=&quot;sourceCode java&quot;&gt;&lt;code class=&quot;sourceCode java&quot;&gt;&lt;span id=&quot;cb12-1&quot;&gt;&lt;a href=&quot;#cb12-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;co&quot;&gt;// Decompiling class: demo_closeable/deeply_nested$smug_middleware&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-2&quot;&gt;&lt;a href=&quot;#cb12-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;package&lt;/span&gt;&lt;span class=&quot;im&quot;&gt; demo_closeable&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-3&quot;&gt;&lt;a href=&quot;#cb12-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-4&quot;&gt;&lt;a href=&quot;#cb12-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;im&quot;&gt;clojure&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;im&quot;&gt;lang&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.*;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-5&quot;&gt;&lt;a href=&quot;#cb12-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-6&quot;&gt;&lt;a href=&quot;#cb12-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;class&lt;/span&gt; deeply_nested$smug_middleware &lt;span class=&quot;kw&quot;&gt;extends&lt;/span&gt; AFunction&lt;/span&gt;
+&lt;span id=&quot;cb12-7&quot;&gt;&lt;a href=&quot;#cb12-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-8&quot;&gt;&lt;a href=&quot;#cb12-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invokeStatic&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-9&quot;&gt;&lt;a href=&quot;#cb12-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;cf&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;new&lt;/span&gt; deeply_nested$smug_middleware$&lt;span class=&quot;fu&quot;&gt;inner_function__13666&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;();&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-10&quot;&gt;&lt;a href=&quot;#cb12-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-11&quot;&gt;&lt;a href=&quot;#cb12-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-12&quot;&gt;&lt;a href=&quot;#cb12-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;at&quot;&gt;@Override&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-13&quot;&gt;&lt;a href=&quot;#cb12-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; handler&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-14&quot;&gt;&lt;a href=&quot;#cb12-14&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;cf&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invokeStatic&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;handler&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-15&quot;&gt;&lt;a href=&quot;#cb12-15&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-16&quot;&gt;&lt;a href=&quot;#cb12-16&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-17&quot;&gt;&lt;a href=&quot;#cb12-17&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-18&quot;&gt;&lt;a href=&quot;#cb12-18&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-19&quot;&gt;&lt;a href=&quot;#cb12-19&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;co&quot;&gt;// Decompiling class: demo_closeable/deeply_nested$smug_middleware$inner_function__13666&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-20&quot;&gt;&lt;a href=&quot;#cb12-20&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;package&lt;/span&gt;&lt;span class=&quot;im&quot;&gt; demo_closeable&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-21&quot;&gt;&lt;a href=&quot;#cb12-21&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-22&quot;&gt;&lt;a href=&quot;#cb12-22&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;im&quot;&gt;clojure&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;im&quot;&gt;lang&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;.*;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-23&quot;&gt;&lt;a href=&quot;#cb12-23&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-24&quot;&gt;&lt;a href=&quot;#cb12-24&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;class&lt;/span&gt; deeply_nested$smug_middleware$inner_function__13666 &lt;span class=&quot;kw&quot;&gt;extends&lt;/span&gt; AFunction&lt;/span&gt;
+&lt;span id=&quot;cb12-25&quot;&gt;&lt;a href=&quot;#cb12-25&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-26&quot;&gt;&lt;a href=&quot;#cb12-26&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Var __update&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-27&quot;&gt;&lt;a href=&quot;#cb12-27&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Var __ddeeply_nested_example_fn&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-28&quot;&gt;&lt;a href=&quot;#cb12-28&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Keyword const__2&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-29&quot;&gt;&lt;a href=&quot;#cb12-29&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Var __str&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-30&quot;&gt;&lt;a href=&quot;#cb12-30&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-31&quot;&gt;&lt;a href=&quot;#cb12-31&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;at&quot;&gt;@Override&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-32&quot;&gt;&lt;a href=&quot;#cb12-32&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;kw&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; &lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; req&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-33&quot;&gt;&lt;a href=&quot;#cb12-33&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; IFn fn &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;IFn&lt;span class=&quot;op&quot;&gt;)&lt;/span&gt;__update&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;getRawRoot&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;();&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-34&quot;&gt;&lt;a href=&quot;#cb12-34&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; invoke &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; __ddeeply_nested_example_fn&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;req&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-35&quot;&gt;&lt;a href=&quot;#cb12-35&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; Keyword const__2 &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; const__2&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-36&quot;&gt;&lt;a href=&quot;#cb12-36&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;Object&lt;/span&gt; rawRoot &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; __str&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;getRawRoot&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;();&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-37&quot;&gt;&lt;a href=&quot;#cb12-37&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;dt&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;bu&quot;&gt;String&lt;/span&gt; s &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot; -- I like hammocks and private jokes.&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-38&quot;&gt;&lt;a href=&quot;#cb12-38&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;kw&quot;&gt;this&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;null&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-39&quot;&gt;&lt;a href=&quot;#cb12-39&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        &lt;span class=&quot;cf&quot;&gt;return&lt;/span&gt; fn&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;invoke&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;invoke&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; const__2&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; rawRoot&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; s&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-40&quot;&gt;&lt;a href=&quot;#cb12-40&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-41&quot;&gt;&lt;a href=&quot;#cb12-41&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-42&quot;&gt;&lt;a href=&quot;#cb12-42&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;dt&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-43&quot;&gt;&lt;a href=&quot;#cb12-43&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        __update &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;var&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;st&quot;&gt;&amp;quot;clojure.core&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;update&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-44&quot;&gt;&lt;a href=&quot;#cb12-44&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        __ddeeply_nested_example_fn &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;var&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;st&quot;&gt;&amp;quot;demo-closeable.deeply-nested&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;example-fn&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-45&quot;&gt;&lt;a href=&quot;#cb12-45&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        const__2 &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;keyword&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kw&quot;&gt;null&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;body&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-46&quot;&gt;&lt;a href=&quot;#cb12-46&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;        __str &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; RT&lt;span class=&quot;op&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt;var&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;st&quot;&gt;&amp;quot;clojure.core&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;str&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;);&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-47&quot;&gt;&lt;a href=&quot;#cb12-47&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    &lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb12-48&quot;&gt;&lt;a href=&quot;#cb12-48&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;/details&gt;
+
+&lt;p&gt;Thanksfully, you will generally not be bothered by this particular
+use case as Reitit provides a more convenient way of applying
+middlewares to handlers in the routes data:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb13&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb13-1&quot;&gt;&lt;a href=&quot;#cb13-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; routes &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb13-2&quot;&gt;&lt;a href=&quot;#cb13-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  [[&lt;span class=&quot;st&quot;&gt;&amp;quot;/counter&amp;quot;&lt;/span&gt; real-worldish-function]&lt;/span&gt;
+&lt;span id=&quot;cb13-3&quot;&gt;&lt;a href=&quot;#cb13-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   [&lt;span class=&quot;st&quot;&gt;&amp;quot;/alternative&amp;quot;&lt;/span&gt; {&lt;span class=&quot;at&quot;&gt;:middleware&lt;/span&gt; [smug-middleware]}&lt;/span&gt;
+&lt;span id=&quot;cb13-4&quot;&gt;&lt;a href=&quot;#cb13-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    [&lt;span class=&quot;st&quot;&gt;&amp;quot;&amp;quot;&lt;/span&gt; example-fn]]])&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Now, all the vars are once again used directly in the body of the
+&lt;code&gt;routes&lt;/code&gt; function, so any local re-evaluation will be picked
+up as expected. Still, as we tend to use a lot of higher-order
+functions, it is frequent to encounter a situation like this one. Often,
+we resign ourself to do full system reloads every-time, as we can&apos;t be
+bothered to check where exactly is the closed over value that is messing
+with our REPL workflow. And often, a little change in the code structure
+can fix it, and we are left wondering why did we not make that little
+change weeks or months ago. The price paid when you extend the duration
+of the feedback loop will compound quickly over time. I have been guilty
+of doing this too many times, so this post also exists to try to atone
+for my past sins. Let&apos;s be honest, I&apos;ll probably do it again. Shame on
+me.&lt;/p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;We have illustrated a web project structure that allows for fast
+feedback without full system reloads. The structure should also be very
+easy to extend upon, adding new routes, handlers, or pieces of runtime
+state.&lt;/p&gt;
+&lt;p&gt;Vars are the unsung heroes of rapid-feedback worklow when doing
+Clojure. They are a lower level abstraction compared to a full
+&quot;reloaded&quot; workflow (Stuart Halloway gives a good comparison in his talk
+&lt;a
+href=&quot;https://www.youtube.com/watch?v=Qx0-pViyIDU&amp;amp;t=1799s&quot;&gt;Running
+With Scissors&lt;/a&gt;). Although what this post showed was specific to
+Reitit, the only &lt;a
+href=&quot;https://github.com/metosin/reitit/blob/620d0c271175a4e11d91d922b26c8162660db3f9/modules/reitit-ring/src/reitit/ring.cljc#L371-L385&quot;&gt;helper
+from the library we used&lt;/a&gt; is dead simple. This can probably be
+replicated with any routing library out there without altering the
+structure too much.&lt;/p&gt;
+</content></entry><entry><title>Getting a feel for closeables</title><published>2023-11-05T00:00:00Z</published><updated>2023-11-05T00:00:00Z</updated><id>https://chpill.github.io/en/posts/getting-a-feel-for-closeables.html</id><content type="html" xml:lang="en">&lt;p&gt;The other day, I stumbled upon &lt;a
+href=&quot;https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98&quot;&gt;this
+article by Maciej Szajna&lt;/a&gt; which presents a minimalist way to declare
+and manage runtime state in your Clojure programs. Having used &lt;a
+href=&quot;https://github.com/stuartsierra/component&quot;&gt;Components&lt;/a&gt;, &lt;a
+href=&quot;https://github.com/weavejester/integrant/&quot;&gt;Integrant&lt;/a&gt; and then
+&lt;a href=&quot;https://github.com/juxt/clip&quot;&gt;Clip&lt;/a&gt;, this felt almost like
+cheating. Can something so simple actually work? Well, it actually does
+pretty well. Let&apos;s illustrate that by implementing a web server, pretty
+barebone, but with some &quot;reloaded workflow&quot;. This won&apos;t be much more
+than a special case for the pattern demonstrated in &lt;a
+href=&quot;https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98&quot;&gt;Maciej&apos;s
+article&lt;/a&gt;, but it will serve as a foundation to build upon in future
+posts.&lt;/p&gt;
+&lt;h2 id=&quot;a-barebone-webserver&quot;&gt;A barebone webserver&lt;/h2&gt;
+&lt;p&gt;If you want to evaluate the code for yourself, you can find the
+following examples in &lt;a
+href=&quot;https://github.com/chpill/demo-closeable/tree/master/barebone-webserver&quot;&gt;this
+repository&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;First, let&apos;s add the &lt;code&gt;closeable&lt;/code&gt; helper:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb1&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb1-1&quot;&gt;&lt;a href=&quot;#cb1-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; closeable&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-2&quot;&gt;&lt;a href=&quot;#cb1-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  ([value] (closeable value &lt;span class=&quot;kw&quot;&gt;identity&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb1-3&quot;&gt;&lt;a href=&quot;#cb1-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  ([value close]&lt;/span&gt;
+&lt;span id=&quot;cb1-4&quot;&gt;&lt;a href=&quot;#cb1-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;   (&lt;span class=&quot;kw&quot;&gt;reify&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-5&quot;&gt;&lt;a href=&quot;#cb1-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     clojure.lang.IDeref (&lt;span class=&quot;kw&quot;&gt;deref&lt;/span&gt; [_] value)&lt;/span&gt;
+&lt;span id=&quot;cb1-6&quot;&gt;&lt;a href=&quot;#cb1-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     java.io.Closeable (close [_] (close value)))))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Now, let&apos;s add a very basic webserver, that shows only one page. It
+increments and displays a counter each time it is served:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb2&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb2-1&quot;&gt;&lt;a href=&quot;#cb2-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;require&lt;/span&gt; &amp;#39;[ring.adapter.jetty &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [run-jetty]])&lt;/span&gt;
+&lt;span id=&quot;cb2-2&quot;&gt;&lt;a href=&quot;#cb2-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-3&quot;&gt;&lt;a href=&quot;#cb2-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; run-with-webserver &lt;/span&gt;[config f]&lt;/span&gt;
+&lt;span id=&quot;cb2-4&quot;&gt;&lt;a href=&quot;#cb2-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;with-open&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-5&quot;&gt;&lt;a href=&quot;#cb2-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    [counter (closeable (&lt;span class=&quot;kw&quot;&gt;atom&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;42&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb2-6&quot;&gt;&lt;a href=&quot;#cb2-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     handler (closeable (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_req]&lt;/span&gt;
+&lt;span id=&quot;cb2-7&quot;&gt;&lt;a href=&quot;#cb2-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                          {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-8&quot;&gt;&lt;a href=&quot;#cb2-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                           &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;str&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;Counter: &amp;quot;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-9&quot;&gt;&lt;a href=&quot;#cb2-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                                      (&lt;span class=&quot;kw&quot;&gt;swap!&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;@counter&lt;/span&gt; &lt;span class=&quot;kw&quot;&gt;inc&lt;/span&gt;))}))&lt;/span&gt;
+&lt;span id=&quot;cb2-10&quot;&gt;&lt;a href=&quot;#cb2-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;     webserver (closeable (run-jetty &lt;span class=&quot;at&quot;&gt;@handler&lt;/span&gt; {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; (&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; config)&lt;/span&gt;
+&lt;span id=&quot;cb2-11&quot;&gt;&lt;a href=&quot;#cb2-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                                               &lt;span class=&quot;at&quot;&gt;:join&lt;/span&gt;? &lt;span class=&quot;va&quot;&gt;false&lt;/span&gt;})&lt;/span&gt;
+&lt;span id=&quot;cb2-12&quot;&gt;&lt;a href=&quot;#cb2-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                          #(.stop &lt;span class=&quot;va&quot;&gt;%&lt;/span&gt;))]&lt;/span&gt;
+&lt;span id=&quot;cb2-13&quot;&gt;&lt;a href=&quot;#cb2-13&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (f &lt;span class=&quot;at&quot;&gt;@webserver&lt;/span&gt;)))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Compared to &lt;a
+href=&quot;https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98&quot;&gt;Maciej&apos;s
+article&lt;/a&gt;, you may notice 2 main differences in this example:&lt;/p&gt;
+&lt;ol type=&quot;1&quot;&gt;
+&lt;li&gt;&lt;p&gt;It does not return a function that closes over the configuration,
+and it does not bother building an associative map with every binding
+declared in &lt;code&gt;with-open&lt;/code&gt;.&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;code&gt;run-with-webserver&lt;/code&gt; is much more specific than the
+generic &lt;code&gt;with-my-system&lt;/code&gt;. The main side effect of calling
+this function is to open up a port on the host where it is run, so I
+prefer to narrow the meaning to reflect that.&lt;/p&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;We can see it in action by evaluating the following expression:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb3&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb3-1&quot;&gt;&lt;a href=&quot;#cb3-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(run-with-webserver {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;54321&lt;/span&gt;}&lt;/span&gt;
+&lt;span id=&quot;cb3-2&quot;&gt;&lt;a href=&quot;#cb3-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                    (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_webserver]&lt;/span&gt;
+&lt;span id=&quot;cb3-3&quot;&gt;&lt;a href=&quot;#cb3-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                      (&lt;span class=&quot;kw&quot;&gt;println&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;The server is live:&amp;quot;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb3-4&quot;&gt;&lt;a href=&quot;#cb3-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                               (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;http://localhost:54321&amp;quot;&lt;/span&gt;))))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;It should print &lt;code&gt;The server is live: Counter: 43&lt;/code&gt; in your
+REPL (among other log statements). That is well and good, but if you try
+to access &lt;a href=&quot;http://localhost:54321&quot;&gt;http://localhost:54321&lt;/a&gt;
+from your browser, you&apos;ll see that the server is not actually running
+anymore. As explained in &lt;a
+href=&quot;https://medium.com/@maciekszajna/reloaded-workflow-out-of-the-box-be6b5f38ea98&quot;&gt;Maciej&apos;s
+article&lt;/a&gt;, once the function we pass to
+&lt;code&gt;run-with-webserver&lt;/code&gt; returns, the opened resources are
+released. In order to keep the server running indefinitely, we can use
+&lt;a
+href=&quot;https://eclipse.dev/jetty/javadoc/jetty-11/org/eclipse/jetty/server/Server.html#join()&quot;&gt;&lt;code&gt;.join&lt;/code&gt;
+on the Jetty Server&lt;/a&gt;.&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb4&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb4-1&quot;&gt;&lt;a href=&quot;#cb4-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(run-with-webserver {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;54321&lt;/span&gt;} #(.&lt;span class=&quot;kw&quot;&gt;join&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;%&lt;/span&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;&lt;strong&gt;NB: Depending on your tooling, evaluating the previous
+expression can block your REPL. You&apos;ll need to interupt the evaluation
+to stop the webserver.&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&quot;testing&quot;&gt;Testing&lt;/h2&gt;
+&lt;p&gt;It felt odd at first having the &quot;run&quot; function not do its task
+indefinitely. After all, Clojure was made for &lt;a
+href=&quot;https://youtu.be/2V1FtfBDsLU?t=646&quot;&gt;situated programs&lt;/a&gt;, long
+running processes tangled with outside world. But it makes it a lot
+easier to work with our system in various ways. Testing is effortless
+for example:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb5&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb5-1&quot;&gt;&lt;a href=&quot;#cb5-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;require&lt;/span&gt; &amp;#39;[clojure.&lt;span class=&quot;kw&quot;&gt;test&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [&lt;span class=&quot;bu&quot;&gt;deftest&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; is &lt;/span&gt;&lt;span class=&quot;kw&quot;&gt;run-tests&lt;/span&gt;]])&lt;/span&gt;
+&lt;span id=&quot;cb5-2&quot;&gt;&lt;a href=&quot;#cb5-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb5-3&quot;&gt;&lt;a href=&quot;#cb5-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;deftest&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; test-webserver&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb5-4&quot;&gt;&lt;a href=&quot;#cb5-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;let&lt;/span&gt; [url &lt;span class=&quot;st&quot;&gt;&amp;quot;http://localhost:12345&amp;quot;&lt;/span&gt;]&lt;/span&gt;
+&lt;span id=&quot;cb5-5&quot;&gt;&lt;a href=&quot;#cb5-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (thrown? java.net.ConnectException (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url)))&lt;/span&gt;
+&lt;span id=&quot;cb5-6&quot;&gt;&lt;a href=&quot;#cb5-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (run-with-webserver {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;12345&lt;/span&gt;}&lt;/span&gt;
+&lt;span id=&quot;cb5-7&quot;&gt;&lt;a href=&quot;#cb5-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                        (&lt;span class=&quot;kw&quot;&gt;fn&lt;/span&gt; [_webserver]&lt;/span&gt;
+&lt;span id=&quot;cb5-8&quot;&gt;&lt;a href=&quot;#cb5-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                          (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url) &lt;span class=&quot;st&quot;&gt;&amp;quot;Counter: 43&amp;quot;&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb5-9&quot;&gt;&lt;a href=&quot;#cb5-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                          (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url) &lt;span class=&quot;st&quot;&gt;&amp;quot;Counter: 44&amp;quot;&lt;/span&gt;))))&lt;/span&gt;
+&lt;span id=&quot;cb5-10&quot;&gt;&lt;a href=&quot;#cb5-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (thrown? java.net.ConnectException (&lt;span class=&quot;kw&quot;&gt;slurp&lt;/span&gt; url)))))&lt;/span&gt;
+&lt;span id=&quot;cb5-11&quot;&gt;&lt;a href=&quot;#cb5-11&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb5-12&quot;&gt;&lt;a href=&quot;#cb5-12&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;comment&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;run-tests&lt;/span&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2 id=&quot;the-famous-reloaded-workflow&quot;&gt;The famous &quot;reloaded&quot;
+workflow&lt;/h2&gt;
+&lt;p&gt;Finally, let&apos;s add some convenient handles (in &lt;code&gt;user.clj&lt;/code&gt;)
+to play with our webserver from the REPL.&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb6&quot;&gt;&lt;pre
+class=&quot;sourceCode clj&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb6-1&quot;&gt;&lt;a href=&quot;#cb6-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defonce&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; *live-server &lt;/span&gt;(&lt;span class=&quot;kw&quot;&gt;atom&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;future&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;::not-initialized-yet&lt;/span&gt;)))&lt;/span&gt;
+&lt;span id=&quot;cb6-2&quot;&gt;&lt;a href=&quot;#cb6-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-3&quot;&gt;&lt;a href=&quot;#cb6-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; start! &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb6-4&quot;&gt;&lt;a href=&quot;#cb6-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;reset!&lt;/span&gt; *live-server (&lt;span class=&quot;kw&quot;&gt;future&lt;/span&gt; (run-with-webserver {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;54321&lt;/span&gt;}&lt;/span&gt;
+&lt;span id=&quot;cb6-5&quot;&gt;&lt;a href=&quot;#cb6-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;                                                   #(.&lt;span class=&quot;kw&quot;&gt;join&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;%&lt;/span&gt;)))))&lt;/span&gt;
+&lt;span id=&quot;cb6-6&quot;&gt;&lt;a href=&quot;#cb6-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; stop! &lt;/span&gt;[]&lt;/span&gt;
+&lt;span id=&quot;cb6-7&quot;&gt;&lt;a href=&quot;#cb6-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;future-cancel&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;@*live-server&lt;/span&gt;))&lt;/span&gt;
+&lt;span id=&quot;cb6-8&quot;&gt;&lt;a href=&quot;#cb6-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb6-9&quot;&gt;&lt;a href=&quot;#cb6-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;comment&lt;/span&gt; (start!)&lt;/span&gt;
+&lt;span id=&quot;cb6-10&quot;&gt;&lt;a href=&quot;#cb6-10&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;         (stop!))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;After evaluating this code and calling &lt;code&gt;(start!)&lt;/code&gt;, you
+should be able to visit &lt;a
+href=&quot;http://localhost:54321&quot;&gt;http://localhost:54321&lt;/a&gt; and see the
+counter for yourself. But do not evaluate this by hand! Your editor
+probably has some integration with tools.namespace via a plugin. For
+example for Emacs and Cider, I usually declare a
+&lt;code&gt;.dir-locals.el&lt;/code&gt; at the root of the projet with the
+following:&lt;/p&gt;
+&lt;pre class=&quot;emacs&quot;&gt;&lt;code&gt;((clojure-mode . ((cider-ns-refresh-before-fn . &amp;quot;user/stop!&amp;quot;)
+                  (cider-ns-refresh-after-fn  . &amp;quot;user/start!&amp;quot;))))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I can then call &lt;code&gt;cider-ns-refresh&lt;/code&gt; to stop my system,
+refresh the namespaces, and start the system again. Notice that I still
+&lt;code&gt;defonce&lt;/code&gt; the reference to the live server, so that I do not
+lose it if I eval the whole buffer. I also provide a dummy future in
+that reference so that I can call &lt;code&gt;cider-ns-refresh&lt;/code&gt; to start
+my system the first time.&lt;/p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;Even though I do not yet have had a lot experience with this
+approach, there are already &lt;a
+href=&quot;https://www.juxt.pro/blog/clojure-in-griffin/&quot;&gt;positive
+reports&lt;/a&gt; of its use, so I&apos;m eager to use it in my projects going
+forward. In the &lt;a
+href=&quot;/en/posts/rapid-feedback-webdev-with-reitit.html&quot;&gt;next post&lt;/a&gt;,
+we&apos;ll explore a slightly meatier example of web server.&lt;/p&gt;
+</content></entry></feed>
