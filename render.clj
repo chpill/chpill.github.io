@@ -128,7 +128,7 @@
         (page (hiccup2/raw (:out (sh "pandoc" "--from=gfm" "index.md")))
               site-title))
   ;; TODO mimick the source directories structure instead of reproducing it manually
-  (doseq [[lang posts-data] [["en" (make-posts-data "en/posts")]]]
+  (doseq [[lang posts-data] [["en" (filter :published (make-posts-data "en/posts"))]]]
     (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
     (spit (str pub-dir "/" lang "/posts/index.html")
           (toc posts-data))
