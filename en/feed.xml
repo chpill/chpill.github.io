@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2023-11-18T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Rapid feedback webdev (with Reitit)</title><published>2023-11-18T00:00:00Z</published><updated>2023-11-18T00:00:00Z</updated><id>https://chpill.github.io/en/posts/rapid-feedback-webdev-with-reitit.html</id><content type="html" xml:lang="en">&lt;p&gt;In the &lt;a
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2025-01-03T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Rapid feedback webdev (with Reitit)</title><published>2023-11-18T00:00:00Z</published><updated>2023-11-18T00:00:00Z</updated><id>https://chpill.github.io/en/posts/rapid-feedback-webdev-with-reitit.html</id><content type="html" xml:lang="en">&lt;p&gt;In the &lt;a
 href=&quot;/en/posts/getting-a-feel-for-closeables.html&quot;&gt;previous post&lt;/a&gt;,
 we got aquainted with &lt;code&gt;closeables&lt;/code&gt; to manage runtime state in
 our Clojure programs. It worked like a charm, but it was (purposefully)
@@ -545,4 +545,43 @@ reports&lt;/a&gt; of its use, so I&apos;m eager to use it in my projects going
 forward. In the &lt;a
 href=&quot;/en/posts/rapid-feedback-webdev-with-reitit.html&quot;&gt;next post&lt;/a&gt;,
 we&apos;ll explore a slightly meatier example of web server.&lt;/p&gt;
+</content></entry><entry><title>Var quote (#’) demystified</title><published>2025-01-03T00:00:00Z</published><updated>2025-01-03T00:00:00Z</updated><id>https://chpill.github.io/en/posts/var-quote-demystified.html</id><content type="html" xml:lang="en">&lt;div class=&quot;sourceCode&quot; id=&quot;cb1&quot;&gt;&lt;pre
+class=&quot;sourceCode clojure&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb1-1&quot;&gt;&lt;a href=&quot;#cb1-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;require&lt;/span&gt; &amp;#39;[ring.adapter.jetty &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [run-jetty]])&lt;/span&gt;
+&lt;span id=&quot;cb1-2&quot;&gt;&lt;a href=&quot;#cb1-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-3&quot;&gt;&lt;a href=&quot;#cb1-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; handler &lt;/span&gt;[_req] {&lt;span class=&quot;at&quot;&gt;:status&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;200&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:body&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;plop&amp;quot;&lt;/span&gt;})&lt;/span&gt;
+&lt;span id=&quot;cb1-4&quot;&gt;&lt;a href=&quot;#cb1-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-5&quot;&gt;&lt;a href=&quot;#cb1-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(run-jetty &lt;span class=&quot;va&quot;&gt;#&amp;#39;handler&lt;/span&gt; {&lt;span class=&quot;at&quot;&gt;:port&lt;/span&gt; &lt;span class=&quot;dv&quot;&gt;4321&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:join&lt;/span&gt;? &lt;span class=&quot;va&quot;&gt;false&lt;/span&gt;})&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;&lt;code&gt;#&apos;handler&lt;/code&gt; is equivalent to &lt;code&gt;(var handler)&lt;/code&gt;
+which returns the var bound to the symbol &lt;code&gt;handler&lt;/code&gt; instead
+of the value inside that var.&lt;/p&gt;
+&lt;p&gt;This &quot;var quoting&quot; makes Jetty invoke the last &lt;code&gt;def&lt;/code&gt;ed
+value of &lt;code&gt;handler&lt;/code&gt;. It works because a Clojure var &lt;a
+href=&quot;https://github.com/clojure/clojure/blob/8ae9e4f95e2fbbd4ee4ee3c627088c45ab44fa68/src/jvm/clojure/lang/Var.java#L381-L708&quot;&gt;can
+be invoked&lt;/a&gt;, and it will in turn try to invoke the value it currently
+holds.&lt;/p&gt;
+&lt;p&gt;A clojure var is also &lt;code&gt;Callable&lt;/code&gt; and
+&lt;code&gt;Runnable&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb2&quot;&gt;&lt;pre
+class=&quot;sourceCode clojure&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb2-1&quot;&gt;&lt;a href=&quot;#cb2-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;import&lt;/span&gt; &amp;#39;(java.util.concurrent Executors ExecutorService))&lt;/span&gt;
+&lt;span id=&quot;cb2-2&quot;&gt;&lt;a href=&quot;#cb2-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;require&lt;/span&gt; &amp;#39;[clojure.&lt;span class=&quot;kw&quot;&gt;test&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:refer&lt;/span&gt; [&lt;span class=&quot;bu&quot;&gt;deftest&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; is&lt;/span&gt;]])&lt;/span&gt;
+&lt;span id=&quot;cb2-3&quot;&gt;&lt;a href=&quot;#cb2-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-4&quot;&gt;&lt;a href=&quot;#cb2-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;defn&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; f &lt;/span&gt;[] &lt;span class=&quot;at&quot;&gt;:plop&lt;/span&gt;)&lt;/span&gt;
+&lt;span id=&quot;cb2-5&quot;&gt;&lt;a href=&quot;#cb2-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-6&quot;&gt;&lt;a href=&quot;#cb2-6&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;bu&quot;&gt;deftest&lt;/span&gt;&lt;span class=&quot;fu&quot;&gt; vars-are-polyvalent&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb2-7&quot;&gt;&lt;a href=&quot;#cb2-7&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;with-open&lt;/span&gt; [exec (Executors/newVirtualThreadPerTaskExecutor)]&lt;/span&gt;
+&lt;span id=&quot;cb2-8&quot;&gt;&lt;a href=&quot;#cb2-8&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;va&quot;&gt;nil&lt;/span&gt; (.&lt;span class=&quot;kw&quot;&gt;get&lt;/span&gt; (^[Runnable] ExecutorService/.submit exec &lt;span class=&quot;va&quot;&gt;#&amp;#39;f&lt;/span&gt;))))&lt;/span&gt;
+&lt;span id=&quot;cb2-9&quot;&gt;&lt;a href=&quot;#cb2-9&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;    (&lt;span class=&quot;kw&quot;&gt;is&lt;/span&gt; (&lt;span class=&quot;kw&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;at&quot;&gt;:plop&lt;/span&gt; (.&lt;span class=&quot;kw&quot;&gt;get&lt;/span&gt; (^[Callable] ExecutorService/.submit exec &lt;span class=&quot;va&quot;&gt;#&amp;#39;f&lt;/span&gt;))))))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;There are functions that expects a var as input, but I have not
+encountered many of them:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb3&quot;&gt;&lt;pre
+class=&quot;sourceCode clojure&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb3-1&quot;&gt;&lt;a href=&quot;#cb3-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(clojure.test/run-test-var &lt;span class=&quot;va&quot;&gt;#&amp;#39;vars-are-polyvalent&lt;/span&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;To dig deeper into the subject of functions and vars, I have enjoyed
+this article by Aaron Lahey: &lt;a
+href=&quot;https://8thlight.com/insights/the-relationship-between-clojure-functions-symbols-vars-and-namespaces&quot;&gt;8thlight.com/insights/the-relationship-between-clojure-functions-symbols-vars-and-namespaces&lt;/a&gt;.&lt;/p&gt;
+&lt;h5 id=&quot;bonus-how-to-make-a-stackoverflowerror-with-a-var&quot;&gt;Bonus: how to
+make a StackOverflowError with a var&lt;/h5&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb4&quot;&gt;&lt;pre
+class=&quot;sourceCode clojure&quot;&gt;&lt;code class=&quot;sourceCode clojure&quot;&gt;&lt;span id=&quot;cb4-1&quot;&gt;&lt;a href=&quot;#cb4-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;(&lt;span class=&quot;kw&quot;&gt;with-local-vars&lt;/span&gt; [a &lt;span class=&quot;at&quot;&gt;:unused-value&lt;/span&gt;]&lt;/span&gt;
+&lt;span id=&quot;cb4-2&quot;&gt;&lt;a href=&quot;#cb4-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (&lt;span class=&quot;kw&quot;&gt;var-set&lt;/span&gt; a a)&lt;/span&gt;
+&lt;span id=&quot;cb4-3&quot;&gt;&lt;a href=&quot;#cb4-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  (a))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 </content></entry></feed>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html><head><title>Var quote (#’) demystified</title><meta charset="utf-8" /><link href="/assets/pandoc-gfm.css" rel="stylesheet" /></head><body><header><nav><p><span style="padding-right:2rem;">Chpill&apos;s (Over) Engineering Log</span><a href="/">about</a> - <a href="/en/posts">posts</a> - <a href="/en/feed.xml">feed</a></p></nav></header><main><h1>Var quote (#’) demystified</h1><p><i>2025-01-03</i></p><div class="sourceCode" id="cb1"><pre
+class="sourceCode clojure"><code class="sourceCode clojure"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(<span class="kw">require</span> &#39;[ring.adapter.jetty <span class="at">:refer</span> [run-jetty]])</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>(<span class="bu">defn</span><span class="fu"> handler </span>[_req] {<span class="at">:status</span> <span class="dv">200</span> <span class="at">:body</span> <span class="st">&quot;plop&quot;</span>})</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>(run-jetty <span class="va">#&#39;handler</span> {<span class="at">:port</span> <span class="dv">4321</span> <span class="at">:join</span>? <span class="va">false</span>})</span></code></pre></div>
+<p><code>#'handler</code> is equivalent to <code>(var handler)</code>
+which returns the var bound to the symbol <code>handler</code> instead
+of the value inside that var.</p>
+<p>This "var quoting" makes Jetty invoke the last <code>def</code>ed
+value of <code>handler</code>. It works because a Clojure var <a
+href="https://github.com/clojure/clojure/blob/8ae9e4f95e2fbbd4ee4ee3c627088c45ab44fa68/src/jvm/clojure/lang/Var.java#L381-L708">can
+be invoked</a>, and it will in turn try to invoke the value it currently
+holds.</p>
+<p>A clojure var is also <code>Callable</code> and
+<code>Runnable</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode clojure"><code class="sourceCode clojure"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>(<span class="kw">import</span> &#39;(java.util.concurrent Executors ExecutorService))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>(<span class="kw">require</span> &#39;[clojure.<span class="kw">test</span> <span class="at">:refer</span> [<span class="bu">deftest</span><span class="fu"> is</span>]])</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>(<span class="bu">defn</span><span class="fu"> f </span>[] <span class="at">:plop</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>(<span class="bu">deftest</span><span class="fu"> vars-are-polyvalent</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">with-open</span> [exec (Executors/newVirtualThreadPerTaskExecutor)]</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    (<span class="kw">is</span> (<span class="kw">=</span> <span class="va">nil</span> (.<span class="kw">get</span> (^[Runnable] ExecutorService/.submit exec <span class="va">#&#39;f</span>))))</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    (<span class="kw">is</span> (<span class="kw">=</span> <span class="at">:plop</span> (.<span class="kw">get</span> (^[Callable] ExecutorService/.submit exec <span class="va">#&#39;f</span>))))))</span></code></pre></div>
+<p>There are functions that expects a var as input, but I have not
+encountered many of them:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode clojure"><code class="sourceCode clojure"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>(clojure.test/run-test-var <span class="va">#&#39;vars-are-polyvalent</span>)</span></code></pre></div>
+<p>To dig deeper into the subject of functions and vars, I have enjoyed
+this article by Aaron Lahey: <a
+href="https://8thlight.com/insights/the-relationship-between-clojure-functions-symbols-vars-and-namespaces">8thlight.com/insights/the-relationship-between-clojure-functions-symbols-vars-and-namespaces</a>.</p>
+<h5 id="bonus-how-to-make-a-stackoverflowerror-with-a-var">Bonus: how to
+make a StackOverflowError with a var</h5>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode clojure"><code class="sourceCode clojure"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>(<span class="kw">with-local-vars</span> [a <span class="at">:unused-value</span>]</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">var-set</span> a a)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  (a))</span></code></pre></div>
+</main><footer style="margin-top:3rem;text-align:center;"><hr /><p><small>Made with <a href="https://pandoc.org/">Pandoc</a></small></p></footer></body></html>
