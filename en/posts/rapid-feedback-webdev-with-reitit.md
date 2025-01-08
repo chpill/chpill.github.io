@@ -264,7 +264,7 @@ code, you can use the [clj-java-decompiler][11] to compare the 2 functions, but
 it isn't vital to the point being made.)
 
 <details>
-<summary>Show me the low level stuff anyway</summary>
+<summary>Decompiled code</summary>
 
 Here's the first version of the `smug-middleware`:
 
