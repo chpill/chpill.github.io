@@ -1,15 +1,15 @@
 {
   description = "Technical blog";
-  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
-  outputs = { self, nixpkgs }@inputs:
+  inputs.nixpkgs-unstable.url = "nixpkgs-unstable";
+  outputs = { self, nixpkgs-unstable }@inputs:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = nixpkgs-unstable.legacyPackages.${system};
     in {
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
           pandoc
-          clojure
+          (clojure.override { jdk = jdk23; })
           # To view the pages locally:
           # cd publish && httplz
           httplz
