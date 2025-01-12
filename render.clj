@@ -6,7 +6,6 @@
             [hiccup2.core :as hiccup2])
   (:import (java.io File)))
 
-
 ;; Redundant with the meta of the index.html?
 (def site-title "Chpill's (Over) Engineering Log")
 (def site-url "https://chpill.github.io")
@@ -61,7 +60,7 @@
                          (assoc :inner-html post-inner-html
                                 :source-path source-path
                                 :slug (str/replace filename #"\.md$" "")))))
-             (sort-by :date (comp - compare)))]
+             (sort-by :published (comp - compare)))]
     posts-data))
 
 (comment (make-posts-data "en/posts")
