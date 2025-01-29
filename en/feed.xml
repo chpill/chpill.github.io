@@ -1,10 +1,36 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2025-01-12T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Reusing a nixpkgs revision across multiple flakes</title><published>2025-01-12T00:00:00Z</published><updated>2025-01-12T00:00:00Z</updated><id>https://chpill.github.io/en/posts/reusing-a-nixpkgs-revision-across-multiple-flakes.html</id><content type="html" xml:lang="en">&lt;p&gt;I have been using NixOS as my daily driver for a little over 2 years
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2025-01-29T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Running a command-line tool in a clean environment</title><published>2025-01-29T00:00:00Z</published><updated>2025-01-29T00:00:00Z</updated><id>https://chpill.github.io/en/posts/running-a-command-line-tool-in-a-clean-environment.html</id><content type="html" xml:lang="en">&lt;p&gt;&lt;strong&gt;TLDR&lt;/strong&gt;: Use
+&lt;code&gt;env -i &amp;lt;command and its arguments&amp;gt;&lt;/code&gt; to run a command
+without the environment variables from your current shell.&lt;/p&gt;
+&lt;p&gt;I was manually doing some maintenance on some remote Linux servers at
+work, and one of the thing I had to do was to disable password
+authentication, to make sure they were only accessible if you had your
+SSH public key in there. This is very easy to do:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;set &lt;code&gt;PasswordAuthentication no&lt;/code&gt; in
+/etc/ssh/sshd_config&lt;/li&gt;
+&lt;li&gt;Enable the new configuration &lt;code&gt;systemctl restart ssh&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;But I also wanted to test that it was producing the intented effect,
+by trying to SSH in via password, see it succeed, and then fail after
+the new settings are enabled. For the first server, I actually kept
+switching on and off identities in my ssh-agent, which was quite
+tedious. For this specific case, SSH has an option to make it ignore the
+agent (&lt;code&gt;-o IdentityAgent=none&lt;/code&gt;), but there is in fact a more
+generally applicable solution to this problem, using &lt;code&gt;env&lt;/code&gt;
+from &lt;a
+href=&quot;https://www.gnu.org/software/coreutils/manual/html_node/env-invocation.html#env_003a-Run-a-command-in-a-modified-environment&quot;&gt;GNU
+coreutils&lt;/a&gt;: &lt;code&gt;env -i ssh &amp;lt;remote-user-and-host&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;I had only ever used &lt;code&gt;env&lt;/code&gt; to see my current environment
+variables, and, funnily enough, a great way to demonstrate what
+&lt;code&gt;env -i&lt;/code&gt; does is to run &lt;code&gt;env -i env&lt;/code&gt;, which will
+output nothing. Hurray!&lt;/p&gt;
+</content></entry><entry><title>Reusing a nixpkgs revision across multiple flakes</title><published>2025-01-12T00:00:00Z</published><updated>2025-01-12T00:00:00Z</updated><id>https://chpill.github.io/en/posts/reusing-a-nixpkgs-revision-across-multiple-flakes.html</id><content type="html" xml:lang="en">&lt;p&gt;I have been using NixOS as my daily driver for a little over 2 years
 now, with one configuration to build 2 targets: a laptop and a desktop
 workstation. I still have mixed feelings about Nix. I really like the
 idea of an immutable store of packages, but it&apos;s trying to do so much at
 the same time that it is overwhelming (if you don&apos;t know much about Nix,
 &lt;a
-href=&quot;https://fzakaria.com/2024/07/05/learn-nix-the-fun-way.html&quot;&gt;Here
+href=&quot;https://fzakaria.com/2024/07/05/learn-nix-the-fun-way.html&quot;&gt;here
 is the best introduction I have come across BY FAR&lt;/a&gt;). In an attempt
 to deepen my undestanding of it, I am starting to use Nix for
 development work, to try and realize good isolated developer
