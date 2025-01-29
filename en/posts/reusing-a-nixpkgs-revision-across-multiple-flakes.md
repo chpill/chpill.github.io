@@ -8,7 +8,7 @@ I have been using NixOS as my daily driver for a little over 2 years now, with
 one configuration to build 2 targets: a laptop and a desktop workstation. I
 still have mixed feelings about Nix. I really like the idea of an immutable
 store of packages, but it's trying to do so much at the same time that it is
-overwhelming (if you don't know much about Nix, [Here is the best introduction I
+overwhelming (if you don't know much about Nix, [here is the best introduction I
 have come across BY FAR][1]). In an attempt to deepen my undestanding of it, I
 am starting to use Nix for development work, to try and realize good isolated
 developer environments and maybe deployments.
