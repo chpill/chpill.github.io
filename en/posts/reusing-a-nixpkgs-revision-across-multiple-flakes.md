@@ -2,7 +2,28 @@
 title: Reusing a nixpkgs revision across multiple flakes
 author: Etienne Spillemaeker
 published: 2025-01-12
+updated: 2025-07-03
 ---
+
+**Update 2025-07-03**
+
+The approach described initially does not work anymore since Nix now [disallows
+indirect flake references][4] as flake inputs (they still work when using the
+CLI, eg. `nix run my-indirect-ref#...`).
+
+I now use the [proxy-flake][3] pattern with [github.com/chpill/proxy-flake](https://github.com/chpill/proxy-flake).
+
+To use it, simply include the following in the `inputs` of a flake:
+
+```nix
+inputs = {
+  proxy-flake = "github:chpill/proxy-flake";
+  nixpkgs.follows = "proxy-flake/nixpkgs";
+  ...
+}
+```
+
+**Initial post 2025-01-12**
 
 I have been using NixOS as my daily driver for a little over 2 years now, with
 one configuration to build 2 targets: a laptop and a desktop workstation. I
@@ -49,3 +70,5 @@ flake.lock.
 
 [1]: https://fzakaria.com/2024/07/05/learn-nix-the-fun-way.html
 [2]: https://discourse.nixos.org/t/my-painpoints-with-flakes/9750/14
+[3]: https://hugosum.com/blog/syncronizing-inputs-across-flakes#synchronizing-inputs-with-proxy-flake
+[4]: https://determinate.systems/posts/changelog-determinate-nix-342/#indirect-flake-refs

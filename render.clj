@@ -94,7 +94,7 @@
          [:title site-title]
          [:link {:href site-url :rel "self"}]
          [:id site-url]
-         [:updated (->> posts (map :published) sort last to-iso-datetime)]
+         [:updated (->> posts (mapcat (juxt :published :updated)) sort last to-iso-datetime)]
          [:author
           [:name "Etienne Spillemaeker"]
           [:uri site-url]]]
