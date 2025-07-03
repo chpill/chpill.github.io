@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2025-01-29T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Running a command-line tool in a clean environment</title><published>2025-01-29T00:00:00Z</published><updated>2025-01-29T00:00:00Z</updated><id>https://chpill.github.io/en/posts/running-a-command-line-tool-in-a-clean-environment.html</id><content type="html" xml:lang="en">&lt;p&gt;&lt;strong&gt;TLDR&lt;/strong&gt;: Use
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Chpill&apos;s (Over) Engineering Log</title><link href="https://chpill.github.io" rel="self" /><id>https://chpill.github.io</id><updated>2025-07-03T00:00:00Z</updated><author><name>Etienne Spillemaeker</name><uri>https://chpill.github.io</uri></author><entry><title>Running a command-line tool in a clean environment</title><published>2025-01-29T00:00:00Z</published><updated>2025-01-29T00:00:00Z</updated><id>https://chpill.github.io/en/posts/running-a-command-line-tool-in-a-clean-environment.html</id><content type="html" xml:lang="en">&lt;p&gt;&lt;strong&gt;TLDR&lt;/strong&gt;: Use
 &lt;code&gt;env -i &amp;lt;command and its arguments&amp;gt;&lt;/code&gt; to run a command
 without the environment variables from your current shell.&lt;/p&gt;
 &lt;p&gt;I was manually doing some maintenance on some remote Linux servers at
@@ -24,7 +24,26 @@ coreutils&lt;/a&gt;: &lt;code&gt;env -i ssh &amp;lt;remote-user-and-host&amp;gt;
 variables, and, funnily enough, a great way to demonstrate what
 &lt;code&gt;env -i&lt;/code&gt; does is to run &lt;code&gt;env -i env&lt;/code&gt;, which will
 output nothing. Hurray!&lt;/p&gt;
-</content></entry><entry><title>Reusing a nixpkgs revision across multiple flakes</title><published>2025-01-12T00:00:00Z</published><updated>2025-01-12T00:00:00Z</updated><id>https://chpill.github.io/en/posts/reusing-a-nixpkgs-revision-across-multiple-flakes.html</id><content type="html" xml:lang="en">&lt;p&gt;I have been using NixOS as my daily driver for a little over 2 years
+</content></entry><entry><title>Reusing a nixpkgs revision across multiple flakes</title><published>2025-01-12T00:00:00Z</published><updated>2025-07-03T00:00:00Z</updated><id>https://chpill.github.io/en/posts/reusing-a-nixpkgs-revision-across-multiple-flakes.html</id><content type="html" xml:lang="en">&lt;p&gt;&lt;strong&gt;Update 2025-07-03&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;The approach described initially does not work anymore since Nix now
+&lt;a
+href=&quot;https://determinate.systems/posts/changelog-determinate-nix-342/#indirect-flake-refs&quot;&gt;disallows
+indirect flake references&lt;/a&gt; as flake inputs (they still work when
+using the CLI, eg. &lt;code&gt;nix run my-indirect-ref#...&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;I now use the &lt;a
+href=&quot;https://hugosum.com/blog/syncronizing-inputs-across-flakes#synchronizing-inputs-with-proxy-flake&quot;&gt;proxy-flake&lt;/a&gt;
+pattern with &lt;a
+href=&quot;https://github.com/chpill/proxy-flake&quot;&gt;github.com/chpill/proxy-flake&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;To use it, simply include the following in the &lt;code&gt;inputs&lt;/code&gt; of
+a flake:&lt;/p&gt;
+&lt;div class=&quot;sourceCode&quot; id=&quot;cb1&quot;&gt;&lt;pre
+class=&quot;sourceCode nix&quot;&gt;&lt;code class=&quot;sourceCode nix&quot;&gt;&lt;span id=&quot;cb1-1&quot;&gt;&lt;a href=&quot;#cb1-1&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;inputs = &lt;span class=&quot;op&quot;&gt;{&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-2&quot;&gt;&lt;a href=&quot;#cb1-2&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  &lt;span class=&quot;va&quot;&gt;proxy-flake&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;github:chpill/proxy-flake&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-3&quot;&gt;&lt;a href=&quot;#cb1-3&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  &lt;span class=&quot;va&quot;&gt;nixpkgs&lt;/span&gt;.&lt;span class=&quot;va&quot;&gt;follows&lt;/span&gt; &lt;span class=&quot;op&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;st&quot;&gt;&amp;quot;proxy-flake/nixpkgs&amp;quot;&lt;/span&gt;&lt;span class=&quot;op&quot;&gt;;&lt;/span&gt;&lt;/span&gt;
+&lt;span id=&quot;cb1-4&quot;&gt;&lt;a href=&quot;#cb1-4&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;  ...&lt;/span&gt;
+&lt;span id=&quot;cb1-5&quot;&gt;&lt;a href=&quot;#cb1-5&quot; aria-hidden=&quot;true&quot; tabindex=&quot;-1&quot;&gt;&lt;/a&gt;&lt;span class=&quot;op&quot;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;&lt;strong&gt;Initial post 2025-01-12&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;I have been using NixOS as my daily driver for a little over 2 years
 now, with one configuration to build 2 targets: a laptop and a desktop
 workstation. I still have mixed feelings about Nix. I really like the
 idea of an immutable store of packages, but it&apos;s trying to do so much at

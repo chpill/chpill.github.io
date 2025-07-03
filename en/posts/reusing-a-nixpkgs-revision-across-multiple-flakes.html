@@ -1,5 +1,24 @@
 <!DOCTYPE html>
-<html><head><title>Reusing a nixpkgs revision across multiple flakes</title><meta charset="utf-8" /><link href="/assets/pandoc-gfm.css" rel="stylesheet" /></head><body><header><nav><p><span style="padding-right:2rem;">Chpill&apos;s (Over) Engineering Log</span><a href="/">about</a> - <a href="/en/posts">posts</a> - <a href="/en/feed.xml">feed</a></p></nav></header><main><h1>Reusing a nixpkgs revision across multiple flakes</h1><p><i>2025-01-12</i></p><p>I have been using NixOS as my daily driver for a little over 2 years
+<html><head><title>Reusing a nixpkgs revision across multiple flakes</title><meta charset="utf-8" /><link href="/assets/pandoc-gfm.css" rel="stylesheet" /></head><body><header><nav><p><span style="padding-right:2rem;">Chpill&apos;s (Over) Engineering Log</span><a href="/">about</a> - <a href="/en/posts">posts</a> - <a href="/en/feed.xml">feed</a></p></nav></header><main><h1>Reusing a nixpkgs revision across multiple flakes</h1><p><i>2025-01-12</i></p><p><strong>Update 2025-07-03</strong></p>
+<p>The approach described initially does not work anymore since Nix now
+<a
+href="https://determinate.systems/posts/changelog-determinate-nix-342/#indirect-flake-refs">disallows
+indirect flake references</a> as flake inputs (they still work when
+using the CLI, eg. <code>nix run my-indirect-ref#...</code>).</p>
+<p>I now use the <a
+href="https://hugosum.com/blog/syncronizing-inputs-across-flakes#synchronizing-inputs-with-proxy-flake">proxy-flake</a>
+pattern with <a
+href="https://github.com/chpill/proxy-flake">github.com/chpill/proxy-flake</a>.</p>
+<p>To use it, simply include the following in the <code>inputs</code> of
+a flake:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode nix"><code class="sourceCode nix"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>inputs = <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="va">proxy-flake</span> <span class="op">=</span> <span class="st">&quot;github:chpill/proxy-flake&quot;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="va">nixpkgs</span>.<span class="va">follows</span> <span class="op">=</span> <span class="st">&quot;proxy-flake/nixpkgs&quot;</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><strong>Initial post 2025-01-12</strong></p>
+<p>I have been using NixOS as my daily driver for a little over 2 years
 now, with one configuration to build 2 targets: a laptop and a desktop
 workstation. I still have mixed feelings about Nix. I really like the
 idea of an immutable store of packages, but it's trying to do so much at
