@@ -1,22 +1,46 @@
 {
   "nodes": {
-    "nixpkgs-unstable": {
+    "nixpkgs": {
       "locked": {
-        "lastModified": 1736523798,
-        "narHash": "sha256-Xb8mke6UCYjge9kPR9o4P1nVrhk7QBbKv3xQ9cj7h2s=",
-        "owner": "NixOS",
+        "lastModified": 1751271578,
+        "narHash": "sha256-P/SQmKDu06x8yv7i0s8bvnnuJYkxVGBWLWHaU+tt4YY=",
+        "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "130595eba61081acde9001f43de3248d8888ac4a",
+        "rev": "3016b4b15d13f3089db8a41ef937b13a9e33a8df",
         "type": "github"
       },
       "original": {
-        "id": "nixpkgs-unstable",
-        "type": "indirect"
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "proxy-flake": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1751490622,
+        "narHash": "sha256-l6LoWjVDH3USCerNsRjnb/QtlvDDBLTs9ZvJRqCHM4k=",
+        "owner": "chpill",
+        "repo": "proxy-flake",
+        "rev": "6e2185a7ef4305117a42e9e68446f771c78f413a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "chpill",
+        "repo": "proxy-flake",
+        "type": "github"
       }
     },
     "root": {
       "inputs": {
-        "nixpkgs-unstable": "nixpkgs-unstable"
+        "nixpkgs": [
+          "proxy-flake",
+          "nixpkgs"
+        ],
+        "proxy-flake": "proxy-flake"
       }
     }
   },
