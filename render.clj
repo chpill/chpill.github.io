@@ -17,14 +17,13 @@
    [:link {:rel "stylesheet" :href "/assets/pandoc-gfm.css"}]])
 
 (def header
-  [:header
-   [:nav
-    (into [:p
-           [:span {:style {:padding-right "2rem"}} site-title]]
-          (interpose " - ")
-          [[:a {:href "/"} "about"]
-           [:a {:href "/en/posts"} "posts"]
-           [:a {:href "/en/feed.xml"} "feed"]])]])
+  [:nav {:style {:display "flex"
+                    :align-items "center"
+                    :justify-content "space-around"}}
+   [:h4 [:a {:href "/"} site-title]]
+   [:a {:href "/en/feed.xml"}
+    [:svg {:width "30px" :height "30px"}
+     [:use {:href "/assets/atom-feed-icon.svg#icon"}]]]])
 
 ;; TODO make an article footer with a link to the source control, for easy
 ;; feedback on spelling, typos and so on.
@@ -66,22 +65,17 @@
 (comment (make-posts-data "en/posts")
          (article-page (first (make-posts-data "en/posts"))))
 
-(def pub-dir "publish")
-
 (defn to-href [source-path]
   (str "/" (str/replace source-path ".md" ".html")))
 
 (defn toc [posts-data]
-  (page
-   (hiccup2/html
-    [:div
-     [:h1 "All posts"]
-     (into [:ul]
-           (map (fn [{:as post-data :keys [source-path published title]}]
-                  [:li [:a {:href (to-href source-path)}
-                        published " - " title]]))
-           posts-data)])
-   "All posts"))
+  [:div
+   [:h3 "All posts"]
+   (into [:ul]
+         (map (fn [{:as post-data :keys [source-path published title]}]
+                [:li [:a {:href (to-href source-path)}
+                      published " - " title]]))
+         posts-data)])
 
 (defn to-iso-datetime [iso-local-date]
   (str iso-local-date "T00:00:00Z"))
@@ -119,20 +113,22 @@
          (spit "/tmp/feed3.xml"
                (hiccup->xml-str (feed "en" (make-posts-data "en/posts")))))
 
+(def pub-dir "publish")
+(def lang "en")
+(def posts-data (filter :published (make-posts-data "en/posts")))
 
 (do
   (sh "mkdir" "-p" (str pub-dir "/assets"))
   (sh "cp" "pandoc-gfm.css" (str pub-dir "/assets/"))
+  (sh "cp" "atom-feed-icon.svg" (str pub-dir "/assets/"))
+  (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
   (spit "publish/index.html"
-        (page (hiccup2/raw (:out (sh "pandoc" "--from=gfm" "index.md")))
+        (page [:div
+               (hiccup2/raw (:out (sh "pandoc" "--from=gfm" "index.md")))
+               (toc posts-data)]
               site-title))
-  ;; TODO mimick the source directories structure instead of reproducing it manually
-  (doseq [[lang posts-data] [["en" (filter :published (make-posts-data "en/posts"))]]]
-    (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
-    (spit (str pub-dir "/" lang "/posts/index.html")
-          (toc posts-data))
-    (spit (str pub-dir "/" lang "/feed.xml")
-          (hiccup->xml-str (feed lang posts-data)))
-    (doseq [{:as post-data :keys [source-path]} posts-data]
-      (spit (str pub-dir (to-href source-path))
-            (article-page post-data)))))
+  (spit (str pub-dir "/" lang "/feed.xml")
+        (hiccup->xml-str (feed lang posts-data)))
+  (doseq [{:as post-data :keys [source-path]} posts-data]
+    (spit (str pub-dir (to-href source-path))
+          (article-page post-data))))
