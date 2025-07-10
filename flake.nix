@@ -29,8 +29,9 @@
       modules = [{
         system.stateVersion = "25.11";
         boot.isContainer = true;
-        networking.hostName = "blogtest";
         networking.firewall.allowedTCPPorts = [ 80 ];
+        # For some unadequately explored reasons, this delays the start of the container
+        networking.useDHCP = false;
         services.nginx = {
           enable = true;
           virtualHosts."container.local" = {
