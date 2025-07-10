@@ -23,13 +23,16 @@ pkgs : let
     ( name: page-data "en/posts" name )
     (builtins.attrNames (builtins.readDir ./en/posts));
 
-  anti-chrono-comparator = a : b : builtins.lessThan b.published a.published;
+  anti-chrono-comparator = f : a : b : builtins.lessThan (f b) (f a);
 
-  sorted-posts = builtins.sort anti-chrono-comparator posts;
+  sorted-posts = builtins.sort (anti-chrono-comparator ( x : x.published ))
+                               posts;
 
   site-title = "Chpill’s (Over) Engineering Log";
+  site-url = "https://chpill.github.io";
+  site-author = "Etienne Spillemaeker";
 
-  page = { title ? "", published ? "", body, ...} : pkgs.writeText "i-dont-care" ''
+  page = { title ? "", published ? "", body, ...} : pkgs.writeText "rendered-page" ''
     <!DOCTYPE html>
     <html>
       <head>
@@ -74,10 +77,42 @@ pkgs : let
     '';
   };
 
+  to-iso-datetime = date : "${date}T00:00:00Z";
+
+  last-update-date = builtins.head (builtins.sort
+    (anti-chrono-comparator (x : x))
+    (map
+      ({ published, updated ? null, ... } : if (updated != null) then updated else published)
+      posts));
+
+  feed = pkgs.writeText "rendered-feed" ''
+    <feed xmlns="http://www.w3.org/2005/Atom">
+    <title>${site-title}</title>
+    <link href="${site-url}" rel="self"/>
+    <id>${site-url}</id>
+    <updated>${to-iso-datetime last-update-date}</updated>
+    <author>
+      <name>${site-author}</name>
+      <uri>${site-url}</uri>
+    </author>
+    ${toString (map ({ published, updated ? "", title, body, url, ...} : ''
+    <entry>
+      <title>${title}</title>
+      <published>${to-iso-datetime published}</published>
+      <updated>${to-iso-datetime updated}</updated>
+      <id>${site-url}${url}</id>
+      <content type="html" xml:lang="en">${body}</content>
+    </entry>
+    '')
+      sorted-posts)}
+    </feed>
+  '';
+
   index-data = page-data "" "index.md";
 in (pkgs.linkFarm "plop"
   ([{ name = "index.html"; path = page (append-table-of-content index-data); }
     { name = "assets/pandoc-gfm.css"; path = ./pandoc-gfm.css; }
-    { name = "assets/atom-feed-icon.svg"; path = ./atom-feed-icon.svg; }] ++ (map
+    { name = "assets/atom-feed-icon.svg"; path = ./atom-feed-icon.svg; }
+    { name = "en/feed.xml"; path = feed; }] ++ (map
       ( { url, ...}@post : { name = url; path = page post; })
       sorted-posts)))
