@@ -1,2 +1,7 @@
 publish/
-.direnv/
+
+# `nix build` outputs to:
+/result
+
+# `sudo nixos-container create plop .` stores the container data in:
+/.tmp
