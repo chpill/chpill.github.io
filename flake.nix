@@ -27,7 +27,7 @@
     nixosConfigurations.container = nixpkgs.lib.nixosSystem {
       inherit system;
       modules = [{
-        system.stateVersion = "25.11";
+        system.stateVersion = "25.05";
         boot.isContainer = true;
         networking.firewall.allowedTCPPorts = [ 80 ];
         # For some unadequately explored reasons, this delays the start of the container
