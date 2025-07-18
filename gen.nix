@@ -1,4 +1,5 @@
 pkgs : let
+  lib = pkgs.lib;
   extract-meta-hack = pkgs.writeText "extract-meta-hack.pandoc-tpl" "$\{meta-json\}";
 
   page-data = dir : name : let
@@ -28,7 +29,7 @@ pkgs : let
   sorted-posts = builtins.sort (anti-chrono-comparator ( x : x.published ))
                                posts;
 
-  site-title = "Chpill’s (Over) Engineering Log";
+  site-title = "Chpill's (Over) Engineering Log";
   site-url = "https://chpill.github.io";
   site-author = "Etienne Spillemaeker";
 
@@ -79,32 +80,32 @@ pkgs : let
 
   to-iso-datetime = date : "${date}T00:00:00Z";
 
+  post-update-date = { published, updated ? null, ... } : if (updated != null) then updated else published;
   last-update-date = builtins.head (builtins.sort
     (anti-chrono-comparator (x : x))
-    (map
-      ({ published, updated ? null, ... } : if (updated != null) then updated else published)
-      posts));
+    (map post-update-date posts));
 
   feed = pkgs.writeText "rendered-feed" ''
+    <?xml version="1.0" encoding="utf-8"?>
     <feed xmlns="http://www.w3.org/2005/Atom">
-    <title>${site-title}</title>
-    <link href="${site-url}" rel="self"/>
-    <id>${site-url}</id>
-    <updated>${to-iso-datetime last-update-date}</updated>
-    <author>
-      <name>${site-author}</name>
-      <uri>${site-url}</uri>
-    </author>
-    ${toString (map ({ published, updated ? "", title, body, url, ...} : ''
-    <entry>
-      <title>${title}</title>
-      <published>${to-iso-datetime published}</published>
-      <updated>${to-iso-datetime updated}</updated>
-      <id>${site-url}${url}</id>
-      <content type="html" xml:lang="en">${body}</content>
-    </entry>
-    '')
-      sorted-posts)}
+      <title>${site-title}</title>
+      <link href="${site-url}" rel="self"/>
+      <id>${site-url}</id>
+      <updated>${to-iso-datetime last-update-date}</updated>
+      <author>
+        <name>${site-author}</name>
+        <uri>${site-url}</uri>
+      </author>
+      ${toString (map ({ published, updated ? "", title, body, url, ...} @ post-data : ''
+      <entry>
+        <title>${title}</title>
+        <published>${to-iso-datetime published}</published>
+        <updated>${to-iso-datetime (post-update-date post-data)}</updated>
+        <id>${site-url}/${url}</id>
+        <content type="html" xml:lang="en">${lib.escapeXML body}</content>
+      </entry>
+      '')
+        sorted-posts)}
     </feed>
   '';
 
