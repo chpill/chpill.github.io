@@ -24,6 +24,18 @@
       inherit website;
       default = website;
     };
+    checks.${system}.dirCountTest = let
+      site = self.packages.${system}.default;
+    in
+      pkgs.runCommandLocal "basicDirCountTest" {
+        src = ./.;
+        nativeBuildInputs = [ site ];
+      } ''
+          mkdir $out
+          sourceFilesCount=$(find "${./en/posts}"    -maxdepth 1 -type f | wc -l)
+          resultFilesCount=$(find "${site}/en/posts" -maxdepth 1 -type l | wc -l)
+          [ "$sourceFilesCount" -eq "$resultFilesCount" ]
+        '';
     nixosConfigurations.container = nixpkgs.lib.nixosSystem {
       inherit system;
       modules = [{
