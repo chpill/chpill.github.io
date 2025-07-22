@@ -2,23 +2,25 @@ pkgs : let
   lib = pkgs.lib;
   extract-meta-hack = pkgs.writeText "extract-meta-hack.pandoc-tpl" "$\{meta-json\}";
 
-  page-data = dir : name : let
-    s = "${dir}/${name}";
-    path = ./. + ("/" + s);
-    url = (builtins.substring 0 ((builtins.stringLength s) - 3) s) + ".html";
-    body = builtins.readFile(
-      pkgs.runCommand "render-post"
-        { buildInputs = [ pkgs.pandoc ]; }
-        "pandoc --from=gfm ${path} > $out"
-    );
-  in {
-    inherit dir name url body;
-  } // builtins.fromJSON(
+  extract-meta = path : builtins.fromJSON(
     builtins.readFile(
       pkgs.runCommand "extract-post-meta"
         { buildInputs = [ pkgs.pandoc ]; }
         "pandoc --template ${extract-meta-hack} ${path} > $out"
     ));
+
+  md-to-html = path : builtins.readFile(
+    pkgs.runCommand "render-post"
+      { buildInputs = [ pkgs.pandoc ]; }
+      "pandoc --from=gfm ${path} > $out"
+  );
+
+  page-data = dir : name : let
+    s = "${dir}/${name}";
+    path = ./. + ("/" + s);
+    url = (builtins.substring 0 ((builtins.stringLength s) - 3) s) + ".html";
+    body = md-to-html path;
+  in { inherit dir name url body; } // extract-meta path;
 
   posts = map
     ( name: page-data "en/posts" name )
@@ -110,10 +112,10 @@ pkgs : let
   '';
 
   index-data = page-data "" "index.md";
-in (pkgs.linkFarm "plop"
+in pkgs.linkFarm "website"
   ([{ name = "index.html"; path = page (append-table-of-content index-data); }
     { name = "assets/pandoc-gfm.css"; path = ./pandoc-gfm.css; }
     { name = "assets/atom-feed-icon.svg"; path = ./atom-feed-icon.svg; }
     { name = "en/feed.xml"; path = feed; }] ++ (map
       ( { url, ...}@post : { name = url; path = page post; })
-      sorted-posts)))
+      sorted-posts))
