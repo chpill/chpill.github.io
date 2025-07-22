@@ -1,10 +1,11 @@
-(ns chpill.over-engineering-log.publish
+(ns render.core
   (:require [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [clojure.string :as str]
             [hiccup2.core :as hiccup2])
-  (:import (java.io File)))
+  (:import (java.io File))
+  (:gen-class))
 
 ;; Redundant with the meta of the index.html?
 (def site-title "Chpill's (Over) Engineering Log")
@@ -113,22 +114,26 @@
          (spit "/tmp/feed3.xml"
                (hiccup->xml-str (feed "en" (make-posts-data "en/posts")))))
 
-(def pub-dir "publish")
 (def lang "en")
-(def posts-data (filter :published (make-posts-data "en/posts")))
 
-(do
-  (sh "mkdir" "-p" (str pub-dir "/assets"))
-  (sh "cp" "pandoc-gfm.css" (str pub-dir "/assets/"))
-  (sh "cp" "atom-feed-icon.svg" (str pub-dir "/assets/"))
-  (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
-  (spit "publish/index.html"
-        (page [:div
-               (hiccup2/raw (:out (sh "pandoc" "--from=gfm" "index.md")))
-               (toc posts-data)]
-              site-title))
-  (spit (str pub-dir "/" lang "/feed.xml")
-        (hiccup->xml-str (feed lang posts-data)))
-  (doseq [{:as post-data :keys [source-path]} posts-data]
-    (spit (str pub-dir (to-href source-path))
-          (article-page post-data))))
+(defn render
+  ([] (render "publish"))
+  ([pub-dir]
+   (sh "mkdir" "-p" (str pub-dir "/assets"))
+   (sh "cp" "pandoc-gfm.css" (str pub-dir "/assets/"))
+   (sh "cp" "atom-feed-icon.svg" (str pub-dir "/assets/"))
+   (sh "mkdir" "-p" (str pub-dir "/" lang "/posts"))
+   (let [posts-data (doall (filter :published (make-posts-data "en/posts")))]
+     (spit (str pub-dir "/index.html")
+           (page [:div
+                  (hiccup2/raw (:out (sh "pandoc" "--from=gfm" "index.md")))
+                  (toc posts-data)]
+                 site-title))
+     (spit (str pub-dir "/" lang "/feed.xml")
+           (hiccup->xml-str (feed lang posts-data)))
+     (doseq [{:as post-data :keys [source-path]} posts-data]
+       (spit (str pub-dir (to-href source-path))
+             (article-page post-data))))))
+
+(defn -main [& args]
+  (apply render args))
