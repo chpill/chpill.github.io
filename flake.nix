@@ -14,13 +14,26 @@
   outputs = { self, nixpkgs, clj-nix, ... }@inputs: let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
+    clj-nix-pkgs = clj-nix.packages.${system};
     lib = pkgs.lib;
-    content-files = lib.fileset.unions [
-      ./pandoc-gfm.css
-      ./atom-feed-icon.svg
-      ./index.md
-      ./en
-    ];
+    fs = lib.fileset;
+    content-src = fs.toSource {
+      root = ./.;
+      fileset = fs.unions [
+        ./pandoc-gfm.css
+        ./atom-feed-icon.svg
+        ./index.md
+        ./en
+      ];
+    };
+    clj-src = fs.toSource {
+      root = ./.;
+      fileset = fs.unions [
+        ./deps.edn
+        ./deps-lock.json
+        ./src
+      ];
+    };
   in {
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
@@ -34,26 +47,14 @@
         libxml2
       ];
     };
-    packages.${system} = let
-      website = import ./gen.nix pkgs;
-      clj-files = lib.fileset.unions [
-        ./deps.edn
-        ./src
-      ];
-    in {
+    packages.${system} = let website = import ./gen.nix pkgs; in {
       inherit website;
       default = website;
-      clj-nix-deps-lock = clj-nix.packages.${system}.deps-lock;
-      clj-website-gen = clj-nix.lib.mkCljApp {
-          inherit pkgs;
-          modules = [
-            {
-              # TODO using the fileset does not work?
-              projectSrc = ./.; # clj-files;
-              name = "chpill.blog/render";
-              main-ns = "render.core";
-            }
-          ];
+      clj-nix-deps-lock = clj-nix-pkgs.deps-lock;
+      clj-website-gen = clj-nix-pkgs.mkCljBin {
+        projectSrc = clj-src;
+        name = "chpill.blog/render";
+        main-ns = "render.core";
       };
       previousWebsiteInClojure = pkgs.runCommandLocal "previousWebsiteInClojure" {
         nativeBuildInputs = [
@@ -71,10 +72,15 @@
     checks.${system} = let
       site = self.packages.${system}.default;
       previous-site = self.packages.${system}.previousWebsiteInClojure;
+      feed-compare = clj-nix-pkgs.mkCljBin {
+        projectSrc = clj-src;
+        name = "chpill.blog/feedtest";
+        main-ns = "render.feed-test";
+      };
     in {
       # TODO add a test using xmllint
       dirCountTest = pkgs.runCommandLocal "basicDirCountTest" {
-        src = content-files;
+        src = ./en/posts;
         nativeBuildInputs = [ site ];
       } ''
           mkdir $out
@@ -82,19 +88,17 @@
           resultFilesCount=$(find "${site}/en/posts" -maxdepth 1 -type l | wc -l)
           [ "$sourceFilesCount" -eq "$resultFilesCount" ]
         '';
-      # Does not work... TODO find how to run the proper clojure test.clj with clj-nix
-      clojureWebsiteComparisonTest = pkgs.runCommandLocal "clojureWebsiteComparisonTest" {
-        src = content-files;
+      feedTest = pkgs.runCommandLocal "feedTest" {
+        src = ./.;
         nativeBuildInputs = [
           site
           previous-site
-          pkgs.babashka
+          feed-compare
         ];
       } ''
           mkdir $out
-          bb -i "(assert (= (xml/parse-str (slurp \"${site}/en/feed.xml\"))\
-                            (xml/parse-str (slurp \"${previous-site}/en/feed.xml\"))))"
-        '';
+          feedtest ${site} ${previous-site}
+      #   '';
     };
     nixosConfigurations.container = nixpkgs.lib.nixosSystem {
       inherit system;
