@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" height="64" width="64">
-  <symbol id="icon" viewBox="0 0 24 24" >
-    <circle cx="3" cy="21" r="3" style="fill: current-color;"/>
-    <circle cx="0" cy="24" r="13" style="fill: none; stroke: currentcolor; stroke-width: 3"/>
-    <circle cx="0" cy="24" r="20" style="fill: none; stroke: currentcolor; stroke-width: 3"/>
-  </symbol>
-</svg>
